@@ -155,6 +155,33 @@ int main(int argc, char** argv){
     img2contrastive(split_masks[0],VOCRootPath,OutputPath);
     for (auto &one_thread : workers) one_thread.join();
 
+    // write a filename list of all images
+    vector<string> vec_AnchorFilename,vec_NanchorFilename;
+    for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(OutputPath))
+        {
+            auto one_filename=dir_entry.path().filename();
+            if (one_filename.string().find(".jpg")==string::npos) continue;
+            if(one_filename.string().find("Nanchor")!=string::npos){
+                vec_NanchorFilename.push_back(one_filename);
+            }
+            else{
+                vec_AnchorFilename.push_back(one_filename);
+            }
+        }
+    // sort filenames
+    sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
+    sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
+    // write to .csv file
+    ofstream ImgList;
+    ImgList.open(OutputPath/"ImgList.csv");
+    // header
+    ImgList<<"anchor,nanchor\n";
+    for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
+    {
+        ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+    }
+    ImgList.close();    
+
     return 0;
 }
 
