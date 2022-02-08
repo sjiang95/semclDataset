@@ -15,7 +15,7 @@ using namespace std;
 namespace fs=std::filesystem;
 using namespace Eigen;
 
-void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir);
+void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir);
 
 // Following colormap is from
 // https://albumentations.ai/docs/autoalbument/examples/pascal_voc/
@@ -49,12 +49,13 @@ int main(int argc, char** argv){
     cout << "OpenCV version: " << CV_VERSION << endl;
     cout<<"This program is designed to generate binary mask for each object in images from VOC 2012 dataset."<<endl;
     cout<<"You should make a copy of original VOC2012 dataset since this program would output 'binary_mask' to VOC2012 folder."<<endl;
-    cout<<"It accept two arguments: voc_conv --voc_path [VOC_root_path] --mode [mode], where VOC_root_path is expected to point to VOC2012 folder."<<endl;
+    cout<<"It accepts multiple arguments: voc_conv --voc_path [VOC_root_path] --mode [mode], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
     cout<<"Set mode as either semantic or instance. Default is semantic."<<endl;
     cout<<"Default values of VOC_root_path and output_path are current path."<<endl;
 
     auto VOCRootPath=fs::current_path();
     string mode="semantic";
+    bool write_binmask=false;
     // If there is input argument.
     if (argc!=1){
         for (size_t i = 1; i < argc; i=i+2)
@@ -73,6 +74,9 @@ int main(int argc, char** argv){
                     cout<<"Set mode as either semantic or instance."<<endl;
                     return -1;
                 }
+            }
+            else if(string("--save_binmask").compare(argv[i])==0){
+                write_binmask=true;
             }
             else{
                 cout<<"Unknown option: "<<argv[i]<<endl;
@@ -100,8 +104,17 @@ int main(int argc, char** argv){
     }
 
     fs::path OutputSurfix="ContrastivePairs_"+mode;
+    fs::path OutputSurfix_binmask="ContrastivePairs_"+mode+"_binmask";
     auto OutputPath=fs::current_path()/OutputSurfix;
+    auto OutputPath_binmask=fs::current_path()/OutputSurfix_binmask;
     cout<<"Attempt to use VOC dataset path: "<<VOCRootPath<<endl;
+    if (write_binmask) {
+        fs::create_directory(OutputPath_binmask);
+        cout<<"Binary masks will be saved to: "<<OutputPath_binmask<<endl;
+    }
+    else{
+        OutputPath_binmask= fs::path(OutputPath_binmask.string().erase());
+    }
 
     // make sure OutputPath exists
     fs::create_directory(OutputPath);
@@ -150,9 +163,9 @@ int main(int argc, char** argv){
     thread workers[numThreads-1];
     for (size_t i = 0; i < numThreads-1; i++)
     {
-        workers[i]=thread(img2contrastive,split_masks[i+1],VOCRootPath,OutputPath);
+        workers[i]=thread(img2contrastive,split_masks[i+1],VOCRootPath,OutputPath,OutputPath_binmask);
     }   
-    img2contrastive(split_masks[0],VOCRootPath,OutputPath);
+    img2contrastive(split_masks[0],VOCRootPath,OutputPath,OutputPath_binmask);
     for (auto &one_thread : workers) one_thread.join();
 
     // write a filename list of all images
@@ -185,7 +198,7 @@ int main(int argc, char** argv){
     return 0;
 }
 
-void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir){
+void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir){
     auto jpegPath=voc_root/"JPEGImages";
     for(auto const& OneColorfulMask: ColorfulMasks){
         auto corres_jpeg=jpegPath/(OneColorfulMask.stem().string()+".jpg");
@@ -236,9 +249,12 @@ void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path
                     // cout<<"Point "<<j<<": ("<<pixel_row<<","<<pixel_col<<")"<<endl;
                     tmp_bin_mask.at<Vec3b>(pixel_row,pixel_col)={255,255,255};
                 }
-                string bin_mask_filename=output_dir/(OneColorfulMask.stem().string()+"_mask"+to_string(i)+".jpg");
-                // uncomment the following line if you want all binary masks
-                // imwrite(bin_mask_filename,tmp_bin_mask);
+                // save binary mask if needed
+                if (!binmask_output_dir.empty()){
+                    string bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".jpg");
+                    imwrite(bin_mask_filename,tmp_bin_mask);
+                }
+                
                 bin_masks.push_back(tmp_bin_mask);
             }
         }
