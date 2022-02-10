@@ -11,24 +11,24 @@
 
 #include<eigen3/Eigen/Dense>
 
+#define percentage_threshold 0.1
+
 using namespace cv;
 using namespace std;
 namespace fs=std::filesystem;
 using namespace Eigen;
 
-void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir);
+void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
-void adeimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
+void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 
 int main(int argc, char** argv){
     unsigned int numThreads = std::thread::hardware_concurrency();
     cout << "The system has " << numThreads<<" threads available." << endl;
     cout << "OpenCV version: " << CV_VERSION << endl;
-    cout<<"This program is designed to generate binary mask for each object in images from VOC 2012 dataset."<<endl;
-    cout<<"You should make a copy of original VOC2012 dataset since this program would output 'binary_mask' to VOC2012 folder."<<endl;
-    cout<<"It accepts multiple arguments: voc_conv --voc_path [VOC_root_path] --mode [mode], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
-    cout<<"Set mode as either semantic or instance. Default is semantic."<<endl;
-    cout<<"Default values of VOC_root_path and output_path are current path."<<endl;
+    cout<<"This program is designed to generate binary mask for each object in images from VOC2012, ADE20K and COCO dataset."<<endl;
+    cout<<"It accepts multiple arguments: ./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --output_dir [desired output directory (default to current dir)], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
+    cout<<"Default values of output_path is current path."<<endl;
 
     auto VOCRootPath=fs::current_path();
     auto ADERootPath=fs::current_path();
@@ -82,127 +82,121 @@ int main(int argc, char** argv){
     const fs::path OutputSurfix="ContrastivePairs";
     const fs::path OutputSurfix_binmask="ContrastivePairs_binmask";
     if(flag_voc){
-            //search for VOC2012 folder in the given VOCRootPath
-            fs::path voc_paths;
-            if(VOCRootPath.string().find("/VOC2012")==string::npos){
-                for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(VOCRootPath))
-                {
-                    if(dir_entry.path().string().find("VOC2012")!=string::npos){
-                        cout<<"Find '/VOC2012' folder at "<<dir_entry<<endl;
-                        voc_paths=dir_entry;
-                        VOCRootPath=voc_paths;
-                        break;
-                    }
-                }
-                if(voc_paths.string().empty()){
-                    cout<<"Cannot find VOC2012 folder. Please make sure the input VOC_root_path does contain the '/VOC2012' folder."<<endl;
-                    return -1;
+        //search for VOC2012 folder in the given VOCRootPath
+        fs::path voc_paths;
+        if(VOCRootPath.string().find("/VOC2012")==string::npos){
+            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(VOCRootPath))
+            {
+                if(dir_entry.path().string().find("VOC2012")!=string::npos){
+                    cout<<"Found '/VOC2012' folder at "<<dir_entry<<endl;
+                    voc_paths=dir_entry;
+                    VOCRootPath=voc_paths;
+                    break;
                 }
             }
+            if(voc_paths.string().empty()){
+                cout<<"Cannot find VOC2012 folder. Please make sure the input VOC_root_path does contain the '/VOC2012' folder."<<endl;
+                return -1;
+            }
+        }
 
-            auto VOC_OutputPath=GlobalOutputPath/OutputSurfix/"voc";
-            auto VOC_OutputPath_binmask=GlobalOutputPath/OutputSurfix_binmask/"voc";
-            cout<<"Attempt to use VOC dataset path: "<<VOCRootPath<<endl;
-            if (write_binmask) {
-                fs::create_directories(VOC_OutputPath_binmask);
-                cout<<"Binary masks will be saved to: "<<VOC_OutputPath_binmask<<endl;
+        auto VOC_OutputPath=GlobalOutputPath/OutputSurfix/"voc";
+        auto VOC_OutputPath_binmask=GlobalOutputPath/OutputSurfix_binmask/"voc";
+        cout<<"Attempt to use VOC dataset path: "<<VOCRootPath<<endl;
+        if (write_binmask) {
+            fs::create_directories(VOC_OutputPath_binmask);
+            cout<<"Binary masks will be saved to: "<<VOC_OutputPath_binmask<<endl;
+        }
+        else{
+            VOC_OutputPath_binmask= fs::path(VOC_OutputPath_binmask.string().erase());
+        }
+
+        // interrupt 
+        cout<<"Press Enter to start processing VOC2012 dataset or Ctrl-C to exit."<<endl;
+        cin.ignore();
+
+        // make sure VOC_OutputPath exists
+        fs::create_directories(VOC_OutputPath);
+        cout<<"Output path: "<<VOC_OutputPath<<endl;
+
+        // read image list file
+        fs::path train_set_txt=VOCRootPath/"ImageSets/Segmentation/train.txt";
+        ifstream txt;
+        txt.open(train_set_txt);
+        vector<string> train_set_filename;
+        assert(txt.is_open());
+        string tmp_txt;
+        while(getline(txt,tmp_txt)){
+            train_set_filename.push_back(tmp_txt);
+        }
+
+        // split all images to threads
+        vector<fs::path> voc_original_masks;
+        vector<vector<fs::path>> split_masks(numThreads);
+        size_t t=0;
+        fs::path voc_original_mask_path=VOCRootPath/"SegmentationClass";
+        for (auto const& onefilename : train_set_filename) 
+        {
+            if (t>numThreads-1) t=0;
+            auto mask_path=voc_original_mask_path/(onefilename+".png");
+            if(fs::exists(mask_path)){
+                voc_original_masks.push_back(mask_path);
+                split_masks[t].push_back(mask_path);
+            }
+            t++;
+        }
+        cout<<"In total "<<voc_original_masks.size()<<" original masks."<<endl;
+        cout<<"Split for "<<split_masks.size()<<" threads. "<<endl;
+        for (size_t i = 0; i < split_masks.size(); i++)
+        {
+            cout<<"[VOC2012] Thread "<<i<<": "<<split_masks[i].size()<<endl;
+        }
+        cout<<"files."<<endl;
+
+        // multithread activation
+        thread workers[numThreads-1];
+        for (size_t i = 0; i < numThreads-1; i++)
+        {
+            workers[i]=thread(vocimg2contrastive,split_masks[i+1],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask,false);
+        }   
+        vocimg2contrastive(split_masks[0],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask,true);
+        for (auto &one_thread : workers) one_thread.join();
+
+        // write a filename list of all images
+        vector<string> vec_AnchorFilename,vec_NanchorFilename;
+        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(VOC_OutputPath))
+        {
+            auto one_filename=dir_entry.path().filename();
+            if (one_filename.string().find(".jpg")==string::npos) continue;
+            if(one_filename.string().find("Nanchor")!=string::npos){
+                vec_NanchorFilename.push_back(one_filename);
             }
             else{
-                VOC_OutputPath_binmask= fs::path(VOC_OutputPath_binmask.string().erase());
+                vec_AnchorFilename.push_back(one_filename);
             }
-
-            // interrupt 
-            cout<<"Press Enter to start processing VOC2012 dataset."<<endl;
-            while(true){
-                if(waitKey(100)==13) break;
-            }
-
-            // timer
-            auto TP=chrono::high_resolution_clock::now();
-
-            // make sure VOC_OutputPath exists
-            fs::create_directories(VOC_OutputPath);
-            cout<<"Output path: "<<VOC_OutputPath<<endl;
-
-            // read image list file
-            fs::path train_set_txt=VOCRootPath/"ImageSets/Segmentation/train.txt";
-            ifstream txt;
-            txt.open(train_set_txt);
-            vector<string> train_set_filename;
-            assert(txt.is_open());
-            string tmp_txt;
-            while(getline(txt,tmp_txt)){
-                train_set_filename.push_back(tmp_txt);
-            }
-
-            // split all images to threads
-            vector<fs::path> voc_original_masks;
-            vector<vector<fs::path>> split_masks(numThreads);
-            size_t t=0;
-            fs::path voc_original_mask_path=VOCRootPath/"SegmentationClass";
-            for (auto const& onefilename : train_set_filename) 
-            {
-                if (t>numThreads-1) t=0;
-                auto mask_path=voc_original_mask_path/(onefilename+".png");
-                if(fs::exists(mask_path)){
-                    voc_original_masks.push_back(mask_path);
-                    split_masks[t].push_back(mask_path);
-                }
-                t++;
-            }
-            cout<<"In total "<<voc_original_masks.size()<<" original masks."<<endl;
-            cout<<"Split for "<<split_masks.size()<<" threads. "<<endl;
-            for (size_t i = 0; i < split_masks.size(); i++)
-            {
-                cout<<"[VOC2012] Thread "<<i<<": "<<split_masks[i].size()<<endl;
-            }
-            cout<<"files."<<endl;
-
-            // multithread activation
-            thread workers[numThreads-1];
-            for (size_t i = 0; i < numThreads-1; i++)
-            {
-                workers[i]=thread(vocimg2contrastive,split_masks[i+1],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask);
-            }   
-            vocimg2contrastive(split_masks[0],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask);
-            for (auto &one_thread : workers) one_thread.join();
-
-            // write a filename list of all images
-            vector<string> vec_AnchorFilename,vec_NanchorFilename;
-            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(VOC_OutputPath))
-                {
-                    auto one_filename=dir_entry.path().filename();
-                    if (one_filename.string().find(".jpg")==string::npos) continue;
-                    if(one_filename.string().find("Nanchor")!=string::npos){
-                        vec_NanchorFilename.push_back(one_filename);
-                    }
-                    else{
-                        vec_AnchorFilename.push_back(one_filename);
-                    }
-                }
-            // sort filenames
-            sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
-            sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
-            // write to .csv file
-            ofstream ImgList;
-            ImgList.open(VOC_OutputPath/"ImgList.csv");
-            // header
-            ImgList<<"anchor,nanchor\n";
-            for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
-            {
-                ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
-            }
-            ImgList.close();    
-            chrono::duration<long double,std::ratio<1,1>> duration=chrono::high_resolution_clock::now()-TP;
+        }
+        // sort filenames
+        sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
+        sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
+        // write to .csv file
+        ofstream ImgList;
+        ImgList.open(VOC_OutputPath/"ImgList.csv");
+        // header
+        ImgList<<"anchor,nanchor\n";
+        for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
+        {
+            ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+        }
+        ImgList.close();    
     }
-    else if(flag_coco){
+    if(flag_coco){
         //search for /train2017 folder in the given COCORootPath
         fs::path coco_train_paths;
         if(COCORootPath.string().find("/train2017")==string::npos){
             for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(COCORootPath))
             {
                 if(dir_entry.path().string().find("/train2017")!=string::npos){
-                    cout<<"Find '/train2017' folder at "<<dir_entry<<endl;
+                    cout<<"Found '/train2017' folder at "<<dir_entry<<endl;
                     coco_train_paths=dir_entry;
                     break;
                 }
@@ -214,7 +208,7 @@ int main(int argc, char** argv){
         }
         auto COCO_OutputPath=GlobalOutputPath/OutputSurfix/"coco";
         auto COCO_OutputPath_binmask=GlobalOutputPath/OutputSurfix_binmask/"coco";
-        cout<<"Attempt to use VOC dataset path: "<<VOCRootPath<<endl;
+        cout<<"Attempt to use COCO dataset path: "<<COCORootPath<<endl;
         if (write_binmask) {
             fs::create_directories(COCO_OutputPath_binmask);
             cout<<"Binary masks will be saved to: "<<COCO_OutputPath_binmask<<endl;
@@ -224,10 +218,8 @@ int main(int argc, char** argv){
         }
 
         // interrupt 
-        cout<<"Press Enter to start processing COCO dataset."<<endl;
-        while(true){
-            if(waitKey(100)==13) break;
-        }
+        cout<<"Press Enter to start processing COCO dataset or Ctrl-C to exit."<<endl;
+        cin.ignore();
 
         // make sure COCO_OutputPath exists
         fs::create_directories(COCO_OutputPath);
@@ -245,7 +237,6 @@ int main(int argc, char** argv){
         // split all images to threads
         vector<vector<fs::path>> split_masks(numThreads);
         size_t t=0;
-        fs::path voc_original_mask_path=VOCRootPath/"SegmentationClass";
         for (auto const& onegraymask : gray_mask_paths) 
         {
             if (t>numThreads-1) t=0;
@@ -266,9 +257,9 @@ int main(int argc, char** argv){
         thread workers[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
-            workers[i]=thread(cocoimg2contrastive,split_masks[i+1],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask);
+            workers[i]=thread(cocoimg2contrastive,split_masks[i+1],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,false);
         }   
-        cocoimg2contrastive(split_masks[0],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,false);
+        cocoimg2contrastive(split_masks[0],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,true);
         for (auto &one_thread : workers) one_thread.join();
 
         // write a filename list of all images
@@ -298,10 +289,111 @@ int main(int argc, char** argv){
         }
         ImgList.close();    
     }
+    if(flag_ade){
+        //search for /images/ADE/training folder in the given ADERootPath
+        fs::path ade_train_paths;
+        if(ADERootPath.string().find("/images/ADE/training")==string::npos){
+            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ADERootPath))
+            {
+                if(dir_entry.path().string().find("/images/ADE/training")!=string::npos){
+                    cout<<"Found '/images/ADE/training' folder at "<<dir_entry<<endl;
+                    ade_train_paths=dir_entry;
+                    break;
+                }
+            }
+            if(ade_train_paths.string().empty()){
+                cout<<"Cannot find /images/ADE/training folder. Please make sure the input ADE_root_path does contain the '/images/ADE/training' folder."<<endl;
+                return -1;
+            }
+        }
+
+        auto ADE_OutputPath=GlobalOutputPath/OutputSurfix/"ade20k";
+        auto ADE_OutputPath_binmask=GlobalOutputPath/OutputSurfix_binmask/"ade20k";
+        cout<<"Attempt to use ADE dataset path: "<<ade_train_paths<<endl;
+        if (write_binmask) {
+            fs::create_directories(ADE_OutputPath_binmask);
+            cout<<"Binary masks will be saved to: "<<ADE_OutputPath_binmask<<endl;
+        }
+        else{
+            ADE_OutputPath_binmask= fs::path(ADE_OutputPath_binmask.string().erase());
+        }
+
+        // interrupt 
+        cout<<"Press Enter to start processing ADE20K dataset or Ctrl-C to exit."<<endl;
+        cin.ignore();
+
+        // make sure ADE_OutputPath exists
+        fs::create_directories(ADE_OutputPath);
+        cout<<"Output path: "<<ADE_OutputPath<<endl;
+
+        // create a list of raw image paths
+        vector<fs::path> raw_image_paths;
+        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ade_train_paths))
+        {
+            if(dir_entry.path().string().find(".jpg")!=string::npos){
+                raw_image_paths.push_back(dir_entry);
+            }
+        }
+
+        // split all images to threads
+        vector<vector<fs::path>> split_masks(numThreads);
+        size_t t=0;
+        for (auto const& OneRawImagePath : raw_image_paths) 
+        {
+            if (t>numThreads-1) t=0;
+            if(fs::exists(OneRawImagePath)){
+                split_masks[t].push_back(OneRawImagePath);
+            }
+            t++;
+        }
+        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
+        cout<<"Split for "<<split_masks.size()<<" threads. "<<endl;
+        for (size_t i = 0; i < split_masks.size(); i++)
+        {
+            cout<<"[ADE20K] Thread "<<i<<": "<<split_masks[i].size()<<endl;
+        }
+        cout<<"files."<<endl;
+
+        // multithread activation
+        thread workers[numThreads-1];
+        for (size_t i = 0; i < numThreads-1; i++)
+        {
+            workers[i]=thread(adeimg2contrastive,split_masks[i+1],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,false);
+        }   
+        adeimg2contrastive(split_masks[0],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,true);
+        for (auto &one_thread : workers) one_thread.join();
+
+        // write a filename list of all images
+        vector<string> vec_AnchorFilename,vec_NanchorFilename;
+        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ADE_OutputPath))
+            {
+                auto one_filename=dir_entry.path().filename();
+                if (one_filename.string().find(".jpg")==string::npos) continue;
+                if(one_filename.string().find("Nanchor")!=string::npos){
+                    vec_NanchorFilename.push_back(one_filename);
+                }
+                else{
+                    vec_AnchorFilename.push_back(one_filename);
+                }
+            }
+        // sort filenames
+        sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
+        sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
+        // write to .csv file
+        ofstream ImgList;
+        ImgList.open(ADE_OutputPath/"ImgList.csv");
+        // header
+        ImgList<<"anchor,nanchor\n";
+        for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
+        {
+            ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+        }
+        ImgList.close();    
+    }
     return 0;
 }
 
-void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir){
+void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
     // Following voc_colormap is from
     // https://albumentations.ai/docs/autoalbument/examples/pascal_voc/
     // black background is removed
@@ -328,6 +420,7 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         {0, 64, 128}
     };
     auto jpegPath=voc_root/"JPEGImages";
+    size_t counter=0;
     for(auto const& OneColorfulMask: ColorfulMasks){
         auto corres_jpeg=jpegPath/(OneColorfulMask.stem().string()+".jpg");
 
@@ -367,7 +460,7 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             if(tmp_pixel_class[i].empty()){
                 continue;
             }
-            else if(tmp_pixel_class[i].size()<=0.2*tmp_mask.rows*tmp_mask.cols){
+            else if(tmp_pixel_class[i].size()<=percentage_threshold*tmp_mask.rows*tmp_mask.cols){
                 // discard current class if it occupies less than 20% of raw image content
                 continue;
             }
@@ -409,6 +502,11 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             imwrite(anchor_filename,tmp_anchor);
             imwrite(Nanchor_filename,tmp_Nanchor);
         }
+        counter++;
+        if (print_process){
+            double process=counter/(double)ColorfulMasks.size()*100;
+            cout<<"[VOC2012] "<<process<<"%"<<endl;
+        }
     }
 }
 
@@ -428,6 +526,7 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
         coco_colormap[i]=i;
     }
     auto RawImagePath=coco_root/"train2017";
+    size_t counter=0;
     for (auto const& OneGrayMask:GrayscaleMasks)
     {
         auto corres_jpg=RawImagePath/(OneGrayMask.stem().string()+".jpg");
@@ -465,7 +564,7 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             if(tmp_pixel_class[i].empty()){
                 continue;
             }
-            else if(tmp_pixel_class[i].size()<=0.2*tmp_mask.rows*tmp_mask.cols){
+            else if(tmp_pixel_class[i].size()<=percentage_threshold*tmp_mask.rows*tmp_mask.cols){
                 // discard current class if it occupies less than 20% of raw image content
                 continue;
             }
@@ -507,9 +606,80 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             imwrite(anchor_filename,tmp_anchor);
             imwrite(Nanchor_filename,tmp_Nanchor);
         }
+        counter++;
+        if (print_process){
+            double process=counter/(double)GrayscaleMasks.size()*100;
+            cout<<"[COCO] "<<process<<"%"<<endl;
+        }
     }    
 }
 
-void adeimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
-    
+void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
+    // design of this function is referred to ADE20K dataset structure
+    // https://github.com/CSAILVision/ADE20K#structure
+    for (size_t i = 0; i < RawImages.size(); i++)
+    {
+        auto OneRawImage=RawImages[i];
+        Mat RawImageMat=imread(OneRawImage,IMREAD_COLOR);
+        auto SegMaskDir=OneRawImage.parent_path()/OneRawImage.stem();
+        if (!fs::exists(SegMaskDir)) cout<<SegMaskDir<<" does not exist."<<endl;
+        size_t k=0;
+        for (auto const& dir_entry : std::filesystem::recursive_directory_iterator{SegMaskDir}) 
+        {
+            if(dir_entry.path().string().find(".png")!=string::npos &&
+               dir_entry.path().string().find("instance_")!=string::npos ){
+                Mat OneSegMask=imread(dir_entry.path(),IMREAD_GRAYSCALE);
+            
+                vector<Vector2i> tmp_pixel_class;// only take pixels with value 255
+                // cout<<"Start pixel-wise match."<<endl;
+                for (size_t r = 0; r < OneSegMask.rows; r++)
+                {
+                    for (size_t c = 0; c < OneSegMask.cols; c++)
+                    {
+                        int GrayValue=OneSegMask.at<uchar>(r,c);
+                        Vector2i coordinates(r,c);
+                        if(255==GrayValue) tmp_pixel_class.push_back(coordinates);
+                        // cout<<"("<<r<<","<<c<<")"<<endl;
+                    }
+                }
+
+                if(tmp_pixel_class.size()<=percentage_threshold*OneSegMask.rows*OneSegMask.cols) {
+                    // cout<<"skip"<<endl;
+                    continue;
+                }
+                else {
+                    Mat tmp_bin_mask(OneSegMask.size(),CV_8UC3,Scalar(0,0,0));
+                    for (auto const& OneCoordinate:tmp_pixel_class)
+                    {
+                        tmp_bin_mask.at<Vec3b>(OneCoordinate(0),OneCoordinate(1))={255,255,255};
+                    }   
+                    // save binary mask if needed
+                    if (!binmask_output_dir.empty()){
+                        string bin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_binmask"+to_string(k)+".jpg");
+                        string nbin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_nbinmask"+to_string(k)+".jpg");
+                        imwrite(bin_mask_filename,tmp_bin_mask);
+                        imwrite(nbin_mask_filename,~tmp_bin_mask);
+                    }
+                    auto invert_bin_mask=~tmp_bin_mask;
+                    Mat tmp_anchor,tmp_Nanchor;
+                    string anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
+                    string Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
+                    k++;
+                    // cout<<"before bitwise_and."<<endl;
+                    bitwise_and(RawImageMat,tmp_bin_mask,tmp_anchor);
+                    // cout<<"between bitwise_and."<<endl;
+                    bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
+                    // cout<<"after bitwise_and."<<endl;
+                    imwrite(anchor_filename,tmp_anchor);
+                    imwrite(Nanchor_filename,tmp_Nanchor);                        
+                }
+                // cout<<"Pixel-wise match finished."<<endl;
+            }
+        }
+
+        if(print_process) {
+            double process=i/(double)RawImages.size()*100;
+            cout<<"[ADE20k] "<<process<<"%"<<endl;
+        }
+    }    
 }

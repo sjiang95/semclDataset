@@ -43,12 +43,24 @@ $ tree /path/to/coco -d
 4 directories
 ```
 
+### [ADE20K](http://groups.csail.mit.edu/vision/datasets/ADE20K/index.html#Download)
+
+Download the full ADE20K dataset(you may need an account for that). Extract it to your desired path. Notice that `/ADE20K_2021_17_01` seems to be a date-based folder name. Please change relative path in `dataset_conv.cpp` in case maintainer of ADE20K update this dataset.
+
+```bash
+$ tree /path/to/ADE20K_2021_17_01 -d -L 3
+└── images
+    └── ADE
+        ├── training
+        └── validation
+```
+
 ## usage
 
 Just simply give it your `VOC2012`, `ade20k` or `coco` dataset path, which are expected to point to `/VOC2012`, `` and ``, respectively.
 
 ```bash
-./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --ade_path [ADE20K_root_path] --coco_path [/path/to/coco] --output_dir [desired output directory (default to current dir)]
+./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --output_dir [desired output directory (default to current dir)]
 ```
 
 Outputs will be written to the path where you execute the program.
