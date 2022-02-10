@@ -58,16 +58,18 @@ int main(int argc, char** argv){
     bool write_binmask=false;
     // If there is input argument.
     if (argc!=1){
-        for (size_t i = 1; i < argc; i=i+2)
+        for (size_t i = 1; i < argc; )
         {
             if(string("--voc_path").compare(argv[i])==0){
                 VOCRootPath=argv[i+1];
                 cout<<"Given VOCRootPath: "<<VOCRootPath<<endl;
+                i=i+2;
                 continue;
             }
             else if(string("--mode").compare(argv[i])==0){
                 if (string(argv[i+1]).compare("semantic")==0 || string(argv[i+1]).compare("instance")==0){
                     mode=argv[i+1];
+                    i=i+2;
                     continue;
                 }
                 else{
@@ -77,6 +79,7 @@ int main(int argc, char** argv){
             }
             else if(string("--save_binmask").compare(argv[i])==0){
                 write_binmask=true;
+                i=i+1;
             }
             else{
                 cout<<"Unknown option: "<<argv[i]<<endl;
@@ -252,7 +255,9 @@ void img2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path
                 // save binary mask if needed
                 if (!binmask_output_dir.empty()){
                     string bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".jpg");
+                    string nbin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
                     imwrite(bin_mask_filename,tmp_bin_mask);
+                    imwrite(nbin_mask_filename,~tmp_bin_mask);
                 }
                 
                 bin_masks.push_back(tmp_bin_mask);
