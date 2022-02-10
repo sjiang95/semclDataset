@@ -10,7 +10,7 @@ This program is designed to convert `VOC2012`, `ADE20K` or `COCO` datasets into 
 
 Download `VOC2012`, `ADE20K` or `COCO` as you need.
 
-### [voc2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
+### [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
 
 Download and extract it to wherever you want. Its directory structure should be the same with below.
 
@@ -57,10 +57,29 @@ $ tree /path/to/ADE20K_2021_17_01 -d -L 3
 
 ## usage
 
-Just simply give it your `VOC2012`, `ade20k` or `coco` dataset path, which are expected to point to `/VOC2012`, `` and ``, respectively.
+Just simply give it your `VOC2012`, `ade20k` or `coco` dataset path.
 
 ```bash
 ./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --output_dir [desired output directory (default to current dir)]
 ```
 
-Outputs will be written to the path where you execute the program.
+Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.
+
+```bash
+$ tree /path/to/ContrastivePairs -d
+├── ade20k
+    ├── ADE_frame_00000001_anchor0.jpg
+    ├── ...
+    └── ImgList.csv
+├── coco
+    ├── 000000000009_anchor0.jpg
+    ├── ...
+    └── ImgList.csv
+└── voc
+    ├── 2007_000039_anchor0.jpg
+    ├── ...
+    └── ImgList.csv
+
+3 directories
+```
+Those `ImgList.csv` files will be read my training program for `dataloader`.
