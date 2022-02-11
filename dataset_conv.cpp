@@ -180,12 +180,12 @@ int main(int argc, char** argv){
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
         // write to .csv file
         ofstream ImgList;
-        ImgList.open(VOC_OutputPath/"ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"VOC_ImgList.csv");
         // header
         ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
-            ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+            ImgList<<"voc/"+vec_AnchorFilename[i]<<","<<"voc/"+vec_NanchorFilename[i]<<"\n";
         }
         ImgList.close();    
     }
@@ -280,12 +280,12 @@ int main(int argc, char** argv){
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
         // write to .csv file
         ofstream ImgList;
-        ImgList.open(COCO_OutputPath/"ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"COCO_ImgList.csv");
         // header
         ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
-            ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+            ImgList<<"coco/"+vec_AnchorFilename[i]<<","<<"coco/"+vec_NanchorFilename[i]<<"\n";
         }
         ImgList.close();    
     }
@@ -381,12 +381,12 @@ int main(int argc, char** argv){
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
         // write to .csv file
         ofstream ImgList;
-        ImgList.open(ADE_OutputPath/"ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"ADE_ImgList.csv");
         // header
         ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
-            ImgList<<vec_AnchorFilename[i]<<","<<vec_NanchorFilename[i]<<"\n";
+            ImgList<<"ade20k/"+vec_AnchorFilename[i]<<","<<"ade20k/"+vec_NanchorFilename[i]<<"\n";
         }
         ImgList.close();    
     }

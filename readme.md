@@ -66,20 +66,15 @@ Just simply give it your `VOC2012`, `ade20k` or `coco` dataset path.
 Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.
 
 ```bash
-$ tree /path/to/ContrastivePairs -d
+$ tree /path/to/ContrastivePairs -L 1
 ├── ade20k
-    ├── ADE_frame_00000001_anchor0.jpg
-    ├── ...
-    └── ImgList.csv
+├── ADE_ImgList.csv
 ├── coco
-    ├── 000000000009_anchor0.jpg
-    ├── ...
-    └── ImgList.csv
-└── voc
-    ├── 2007_000039_anchor0.jpg
-    ├── ...
-    └── ImgList.csv
+├── COCO_ImgList.csv
+├── voc
+└── VOC_ImgList.csv
 
 3 directories
 ```
-Those `ImgList.csv` files will be read my training program for `dataloader`.
+
+Those `*_ImgList.csv` files will be read by `dataloader` in training program.
