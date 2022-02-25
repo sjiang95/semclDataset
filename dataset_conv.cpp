@@ -11,7 +11,7 @@
 
 #include<eigen3/Eigen/Dense>
 
-#define percentage_threshold 0.1
+#define percentage_threshold 0.01
 
 using namespace cv;
 using namespace std;
