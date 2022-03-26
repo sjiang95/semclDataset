@@ -21,21 +21,23 @@ using namespace Eigen;
 void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
+void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 
 int main(int argc, char** argv){
     unsigned int numThreads = std::thread::hardware_concurrency();
     cout << "The system has " << numThreads<<" threads available." << endl;
     cout << "OpenCV version: " << CV_VERSION << endl;
-    cout<<"This program is designed to generate binary mask for each object in images from VOC2012, ADE20K and COCO dataset."<<endl;
-    cout<<"It accepts multiple arguments: ./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --output_dir [desired output directory (default to current dir)], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
+    cout<<"This program is designed to generate binary mask for each object in images from VOC2012, ADE20K, Cityscapes and COCO dataset."<<endl;
+    cout<<"It accepts multiple arguments: ./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `/gtFine` and `/leftImg8bit`] --output_dir [desired output directory (default to current dir)], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
     cout<<"Default values of output_path is current path."<<endl;
 
     auto VOCRootPath=fs::current_path();
     auto ADERootPath=fs::current_path();
+    auto CityRootPath=fs::current_path();
     auto COCORootPath=fs::current_path();
     auto GlobalOutputPath=fs::current_path();
     bool write_binmask=false;
-    bool flag_voc=false,flag_ade=false,flag_coco=false;
+    bool flag_voc=false,flag_ade=false,flag_coco=false,flag_city=false;
     // If there is input argument.
     if (argc!=1){
         for (size_t i = 1; i < argc; )
@@ -61,8 +63,14 @@ int main(int argc, char** argv){
                 i=i+2;
                 continue;
             }
+            else if(string("--city_path").compare(argv[i])==0){
+                flag_city=true;
+                CityRootPath=argv[i+1];
+                cout<<"Given CityscapesRootPath: "<<CityRootPath<<endl;
+                i=i+2;
+                continue;
+            }
             else if(string("--output_dir").compare(argv[i])==0){
-                flag_coco=true;
                 GlobalOutputPath=argv[i+1];
                 cout<<"Given OutputPath: "<<GlobalOutputPath<<endl;
                 i=i+2;
@@ -390,6 +398,115 @@ int main(int argc, char** argv){
         }
         ImgList.close();    
     }
+    if(flag_city){
+        //search for /gtFine and /leftImg8bit folders under the given CityRootPath
+        fs::path city_train_paths=CityRootPath;
+        fs::path city_label_paths;
+        fs::path city_img_paths;
+        for (auto const& one_subdir : fs::directory_iterator(city_train_paths))
+        {
+            if (fs::is_directory(one_subdir)){
+                if (one_subdir.path().string().find("/gtFine")!=string::npos){
+                    city_label_paths=one_subdir.path()/"train";
+                    if (!fs::exists(city_label_paths)) {
+                        cout<<"Cannot find Cityscapes `/gtFine/train` for labels under "<<city_label_paths<<". Please check.";
+                        return -1;
+                    }
+                }
+                else if (one_subdir.path().string().find("/leftImg8bit")!=string::npos){
+                    city_img_paths=one_subdir.path()/"train";
+                    if (!fs::exists(city_img_paths)) {
+                        cout<<"Cannot find Cityscapes `/leftImg8bit/train` for raw images under "<<city_img_paths<<". Please check.";
+                        return -1;
+                    }
+                }
+            }
+        }
+        
+
+        auto city_OutputPath=GlobalOutputPath/OutputSurfix/"cityscapes";
+        auto city_OutputPath_binmask=GlobalOutputPath/OutputSurfix_binmask/"cityscapes";
+        cout<<"Attempt to use Cityscapes dataset path: "<<city_train_paths<<endl;
+        if (write_binmask) {
+            fs::create_directories(city_OutputPath_binmask);
+            cout<<"Binary masks will be saved to: "<<city_OutputPath_binmask<<endl;
+        }
+        else{
+            city_OutputPath_binmask= fs::path(city_OutputPath_binmask.string().erase());
+        }
+
+        // interrupt 
+        cout<<"Press Enter to start processing Cityscapes dataset or Ctrl-C to exit."<<endl;
+        cin.ignore();
+
+        // make sure city_OutputPath exists
+        fs::create_directories(city_OutputPath);
+        cout<<"Output path: "<<city_OutputPath<<endl;
+
+        // create a list of raw image paths
+        vector<fs::path> raw_image_paths;
+        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(city_img_paths))
+        {
+            if(dir_entry.path().string().find("_leftImg8bit.png")!=string::npos){
+                raw_image_paths.push_back(dir_entry);
+            }
+        }
+
+        // split all images to threads
+        vector<vector<fs::path>> split_imgs(numThreads);
+        size_t t=0;
+        for (auto const& OneRawImagePath : raw_image_paths) 
+        {
+            if (t>numThreads-1) t=0;
+            if(fs::exists(OneRawImagePath)){
+                split_imgs[t].push_back(OneRawImagePath);
+            }
+            t++;
+        }
+        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
+        cout<<"Split for "<<split_imgs.size()<<" threads. "<<endl;
+        for (size_t i = 0; i < split_imgs.size(); i++)
+        {
+            cout<<"[Cityscapes] Thread "<<i<<": "<<split_imgs[i].size()<<endl;
+        }
+        cout<<"files."<<endl;
+
+        // multithread activation
+        thread workers[numThreads-1];
+        for (size_t i = 0; i < numThreads-1; i++)
+        {
+            workers[i]=thread(cityimg2contrastive,split_imgs[i+1],city_OutputPath,city_OutputPath_binmask,false);
+        }   
+        cityimg2contrastive(split_imgs[0],city_OutputPath,city_OutputPath_binmask,true);
+        for (auto &one_thread : workers) one_thread.join();
+
+        // write a filename list of all images
+        vector<string> vec_AnchorFilename,vec_NanchorFilename;
+        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(city_OutputPath))
+            {
+                auto one_filename=dir_entry.path().filename();
+                if (one_filename.string().find(".png")==string::npos) continue;
+                if(one_filename.string().find("Nanchor")!=string::npos){
+                    vec_NanchorFilename.push_back(one_filename);
+                }
+                else{
+                    vec_AnchorFilename.push_back(one_filename);
+                }
+            }
+        // sort filenames
+        sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
+        sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
+        // write to .csv file
+        ofstream ImgList;
+        ImgList.open(GlobalOutputPath/OutputSurfix/"Cityscapes_ImgList.csv");
+        // header
+        ImgList<<"anchor,nanchor\n";
+        for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
+        {
+            ImgList<<"cityscapes/"+vec_AnchorFilename[i]<<","<<"cityscapes/"+vec_NanchorFilename[i]<<"\n";
+        }
+        ImgList.close();    
+    }
     return 0;
 }
 
@@ -680,6 +797,141 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
         if(print_process) {
             double process=i/(double)RawImages.size()*100;
             cout<<"[ADE20k] "<<process<<"%"<<endl;
+        }
+    }    
+}
+
+void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
+    // design of this function is referred to Cityscapes dataset structure
+    vector<vector<int>> city_colormap={
+        // {0,0,0}, //ignore black background
+        {111, 74, 0},
+        {81, 0, 81},
+        {128, 64, 128},
+        {244, 35, 232},
+        {250, 170, 160},
+        {230, 150, 140},
+        {70, 70, 70},
+        {102, 102, 156},
+        {190, 153, 153},
+        {180, 165, 180},
+        {150, 100, 100},
+        {150, 120, 90},
+        {153, 153, 153},
+        {250, 170, 30},
+        {220, 220, 0},
+        {107, 142, 35},
+        {152, 251, 152},
+        {70, 130, 180},
+        {220, 20, 60},
+        {255, 0, 0},
+        {0, 0, 142},
+        {0, 0, 70},
+        {0, 60, 100},
+        {0, 0, 90},
+        {0, 0, 110},
+        {0, 80, 100},
+        {0, 0, 230},
+        {119, 11, 32},
+        {0, 0, 142}
+    };
+    size_t suffix_len=string("leftImg8bit.png").length();
+    for (size_t i = 0; i < RawImages.size(); i++)
+    {
+        auto OneRawImage=RawImages[i];
+        Mat RawImageMat=imread(OneRawImage);
+        string OneColorMask=OneRawImage;
+
+        // cout<<"Start getting corresponding mask path."<<endl;
+        do{
+            OneColorMask=OneColorMask.replace(OneColorMask.find("leftImg8bit"),suffix_len-4,"gtFine");
+            // cout<<OneColorMask<<endl;
+        }
+        while(OneColorMask.find("leftImg8bit")!=string::npos);//replace `leftImg8bit` with `gtFine`
+        // cout<<"After getting corresponding mask path."<<endl;
+        
+
+        auto SegMaskDir=OneColorMask.insert(OneColorMask.find(".png"),"_color");
+        if (!fs::exists(SegMaskDir)) {
+            cout<<SegMaskDir<<" does not exist."<<endl;
+            abort();
+        }
+        Mat OneSegMask=imread(SegMaskDir);
+        cvtColor(OneSegMask,OneSegMask,COLOR_BGR2RGB);
+
+        vector<vector<Vector2i>> tmp_pixel_class(city_colormap.size());// only take pixels with value 255
+        // cout<<"Start pixel-wise match."<<endl;
+        for (size_t r = 0; r < OneSegMask.rows; r++)
+        {
+            for (size_t c = 0; c < OneSegMask.cols; c++)
+            {
+                auto pixelRGB=OneSegMask.at<Vec3b>(r,c);
+                vector<int> tmp_RGB={pixelRGB[0],pixelRGB[1],pixelRGB[2]};
+                Vector2i coordinates(r,c);
+                for (size_t i = 0; i < city_colormap.size(); i++)
+                {
+                    if(city_colormap[i]==tmp_RGB){
+                        tmp_pixel_class[i].push_back(coordinates);
+                        // cout<<"("<<r<<","<<c<<")"<<endl;
+                    }
+                }
+            }
+        }
+
+        // generate binary mask
+        // cout<<"Generate binary masks."<<endl;
+        vector<Mat> bin_masks;
+        for (size_t i = 0; i < tmp_pixel_class.size(); i++)
+        {
+            if(tmp_pixel_class[i].empty()){
+                continue;
+            }
+            else if(tmp_pixel_class[i].size()<=percentage_threshold*OneSegMask.rows*OneSegMask.cols){
+                // discard current class if it occupies less than 20% of raw image content
+                continue;
+            }
+            else{
+                // binary mask, initialized to pure black
+                Mat tmp_bin_mask(OneSegMask.size(),CV_8UC3,Scalar(0,0,0));
+                for (size_t j = 0; j < tmp_pixel_class[i].size(); j++)
+                {
+                    size_t pixel_row=tmp_pixel_class[i][j](0);
+                    size_t pixel_col=tmp_pixel_class[i][j](1);
+                    // cout<<"Point "<<j<<": ("<<pixel_row<<","<<pixel_col<<")"<<endl;
+                    tmp_bin_mask.at<Vec3b>(pixel_row,pixel_col)={255,255,255};
+                }
+                // save binary mask if needed
+                if (!binmask_output_dir.empty()){
+                    string bin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_binmask"+to_string(i)+".jpg");
+                    string nbin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_nbinmask"+to_string(i)+".jpg");
+                    imwrite(bin_mask_filename,tmp_bin_mask);
+                    imwrite(nbin_mask_filename,~tmp_bin_mask);
+                }
+                
+                bin_masks.push_back(tmp_bin_mask);
+            }
+        }
+        // cout<<"Generate binary masks finished."<<endl;        
+
+        vector<Mat> anchor,Nanchor;
+        for (size_t i = 0; i < bin_masks.size(); i++)
+        {
+            auto invert_bin_mask=~bin_masks[i];
+            Mat tmp_anchor,tmp_Nanchor;
+            string anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(i)+".png");
+            string Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(i)+".png");
+            // cout<<"before bitwise_and."<<endl;
+            bitwise_and(RawImageMat,bin_masks[i],tmp_anchor);
+            // cout<<"between bitwise_and."<<endl;
+            bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
+            // cout<<"after bitwise_and."<<endl;
+            imwrite(anchor_filename,tmp_anchor);
+            imwrite(Nanchor_filename,tmp_Nanchor);
+        }
+
+        if(print_process) {
+            double process=i/(double)RawImages.size()*100;
+            cout<<"[Cityscapes] "<<process<<"%"<<endl;
         }
     }    
 }

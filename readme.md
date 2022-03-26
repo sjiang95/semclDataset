@@ -1,6 +1,6 @@
 # dataset_conv
 
-This program is designed to convert `VOC2012`, `ADE20K` or `COCO` datasets into anchor & non-anchor pairs for contrastive learning.
+This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` datasets into anchor & non-anchor pairs for contrastive learning.
 
 |anchor|non-anchor|
 |:-:|:-:|
@@ -8,7 +8,7 @@ This program is designed to convert `VOC2012`, `ADE20K` or `COCO` datasets into 
 
 ## Prepare datasets
 
-Download `VOC2012`, `ADE20K` or `COCO` as you need.
+Download `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` as you need.
 
 ### [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
 
@@ -27,6 +27,22 @@ $ tree /path/to/VOCdevkit/VOC2012 -d
 └── SegmentationObject
 
 9 directories
+```
+
+### [Cityscapes](https://www.cityscapes-dataset.com/downloads/)
+
+Download and extract `leftImg8bit_trainvaltest.zip` (raw images) and `gtFine_trainvaltest.zip` (labels).
+
+```bash
+$ tree /path/to/cityscapes -d -L 2
+├── gtFine
+│   ├── test
+│   ├── train
+│   └── val
+└── leftImg8bit
+    ├── test
+    ├── train
+    └── val
 ```
 
 ### [COCO](https://cocodataset.org/#download)
@@ -57,10 +73,10 @@ $ tree /path/to/ADE20K_2021_17_01 -d -L 3
 
 ## usage
 
-Just simply give it your `VOC2012`, `ade20k` or `coco` dataset path.
+Just simply give it your `VOC2012`, `Cityscapes`, `ade20k` or `coco` dataset path.
 
 ```bash
-./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --output_dir [desired output directory (default to current dir)]
+./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `/gtFine` and `/leftImg8bit`] --output_dir [desired output directory (default to current dir)]
 ```
 
 Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.
@@ -69,12 +85,14 @@ Outputs will be written to `ContrastivePairs` in the path `--output_dir` points 
 $ tree /path/to/ContrastivePairs -L 1
 ├── ade20k
 ├── ADE_ImgList.csv
+├── cityscapes
+├── Cityscapes_ImgList.csv
 ├── coco
 ├── COCO_ImgList.csv
 ├── voc
 └── VOC_ImgList.csv
 
-3 directories
+4 directories, 4 files
 ```
 
 Those `*_ImgList.csv` files will be read by `dataloader` in training program.
