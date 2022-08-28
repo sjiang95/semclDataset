@@ -27,7 +27,11 @@ int main(int argc, char** argv){
     const unsigned int numThreads = std::thread::hardware_concurrency();
     cout << "The system has " << numThreads<<" threads available." << endl;
     cout << "OpenCV version\t: " << CV_VERSION << endl;
-    cout << "Eigen version\t: " << std::format("{}.{}.{}", EIGEN_WORLD_VERSION, EIGEN_MAJOR_VERSION, EIGEN_MINOR_VERSION) << endl;
+    // std::format is temporarily not supported by gcc.
+    // Please check `Text formatting` entry under `C++20 library features` table: https://en.cppreference.com/w/cpp/20
+    #ifdef _MSC_VER // only msvc supports MSMF
+        cout << "Eigen version\t: " << std::format("{}.{}.{}", EIGEN_WORLD_VERSION, EIGEN_MAJOR_VERSION, EIGEN_MINOR_VERSION) << endl;
+    #endif
     cout<<"This program is designed to generate binary mask for each object in images from VOC2012, ADE20K, Cityscapes and COCO dataset."<<endl;
     cout<<"It accepts multiple arguments: ./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `/gtFine` and `/leftImg8bit`] --output_dir [desired output directory (default to current dir)], where VOC_root_path is expected to point to VOC2012 folder. Add --save_binmask if you want to save binary masks."<<endl;
     cout<<"Default values of output_path is current path."<<endl;
