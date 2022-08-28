@@ -9,7 +9,7 @@
 #include <fstream>
 #include<chrono>
 
-#include<eigen3/Eigen/Dense>
+#include<Eigen/Dense>
 
 #define percentage_threshold 0.01
 
@@ -24,7 +24,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
 void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
 
 int main(int argc, char** argv){
-    unsigned int numThreads = std::thread::hardware_concurrency();
+    const unsigned int numThreads = std::thread::hardware_concurrency();
     cout << "The system has " << numThreads<<" threads available." << endl;
     cout << "OpenCV version: " << CV_VERSION << endl;
     cout<<"This program is designed to generate binary mask for each object in images from VOC2012, ADE20K, Cityscapes and COCO dataset."<<endl;
@@ -162,13 +162,14 @@ int main(int argc, char** argv){
         cout<<"files."<<endl;
 
         // multithread activation
-        thread workers[numThreads-1];
+        thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
             workers[i]=thread(vocimg2contrastive,split_masks[i+1],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask,false);
         }   
         vocimg2contrastive(split_masks[0],VOCRootPath,VOC_OutputPath,VOC_OutputPath_binmask,true);
-        for (auto &one_thread : workers) one_thread.join();
+        for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
+        delete [] workers;
 
         // write a filename list of all images
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
@@ -177,10 +178,10 @@ int main(int argc, char** argv){
             auto one_filename=dir_entry.path().filename();
             if (one_filename.string().find(".jpg")==string::npos) continue;
             if(one_filename.string().find("Nanchor")!=string::npos){
-                vec_NanchorFilename.push_back(one_filename);
+                vec_NanchorFilename.push_back(one_filename.string());
             }
             else{
-                vec_AnchorFilename.push_back(one_filename);
+                vec_AnchorFilename.push_back(one_filename.string());
             }
         }
         // sort filenames
@@ -262,13 +263,14 @@ int main(int argc, char** argv){
         cout<<"files."<<endl;
 
         // multithread activation
-        thread workers[numThreads-1];
+        thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
             workers[i]=thread(cocoimg2contrastive,split_masks[i+1],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,false);
         }   
         cocoimg2contrastive(split_masks[0],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,true);
-        for (auto &one_thread : workers) one_thread.join();
+        for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
+        delete [] workers;
 
         // write a filename list of all images
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
@@ -277,10 +279,10 @@ int main(int argc, char** argv){
                 auto one_filename=dir_entry.path().filename();
                 if (one_filename.string().find(".jpg")==string::npos) continue;
                 if(one_filename.string().find("Nanchor")!=string::npos){
-                    vec_NanchorFilename.push_back(one_filename);
+                    vec_NanchorFilename.push_back(one_filename.string());
                 }
                 else{
-                    vec_AnchorFilename.push_back(one_filename);
+                    vec_AnchorFilename.push_back(one_filename.string());
                 }
             }
         // sort filenames
@@ -363,13 +365,14 @@ int main(int argc, char** argv){
         cout<<"files."<<endl;
 
         // multithread activation
-        thread workers[numThreads-1];
+        thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
             workers[i]=thread(adeimg2contrastive,split_masks[i+1],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,false);
         }   
         adeimg2contrastive(split_masks[0],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,true);
-        for (auto &one_thread : workers) one_thread.join();
+        for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
+        delete [] workers;
 
         // write a filename list of all images
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
@@ -378,10 +381,10 @@ int main(int argc, char** argv){
                 auto one_filename=dir_entry.path().filename();
                 if (one_filename.string().find(".jpg")==string::npos) continue;
                 if(one_filename.string().find("Nanchor")!=string::npos){
-                    vec_NanchorFilename.push_back(one_filename);
+                    vec_NanchorFilename.push_back(one_filename.string());
                 }
                 else{
-                    vec_AnchorFilename.push_back(one_filename);
+                    vec_AnchorFilename.push_back(one_filename.string());
                 }
             }
         // sort filenames
@@ -472,13 +475,14 @@ int main(int argc, char** argv){
         cout<<"files."<<endl;
 
         // multithread activation
-        thread workers[numThreads-1];
+        thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
             workers[i]=thread(cityimg2contrastive,split_imgs[i+1],city_OutputPath,city_OutputPath_binmask,false);
         }   
         cityimg2contrastive(split_imgs[0],city_OutputPath,city_OutputPath_binmask,true);
-        for (auto &one_thread : workers) one_thread.join();
+        for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
+        delete [] workers;
 
         // write a filename list of all images
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
@@ -487,10 +491,10 @@ int main(int argc, char** argv){
                 auto one_filename=dir_entry.path().filename();
                 if (one_filename.string().find(".png")==string::npos) continue;
                 if(one_filename.string().find("Nanchor")!=string::npos){
-                    vec_NanchorFilename.push_back(one_filename);
+                    vec_NanchorFilename.push_back(one_filename.string());
                 }
                 else{
-                    vec_AnchorFilename.push_back(one_filename);
+                    vec_AnchorFilename.push_back(one_filename.string());
                 }
             }
         // sort filenames
@@ -545,8 +549,8 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             cout<<"File "<<corres_jpeg<<" does not exist."<<endl;
             abort();
         }
-        Mat jpeg=imread(corres_jpeg);
-        Mat tmp_mask=imread(OneColorfulMask);
+        Mat jpeg=imread(corres_jpeg.string());
+        Mat tmp_mask=imread(OneColorfulMask.string());
         cvtColor(tmp_mask,tmp_mask,COLOR_BGR2RGB);
 
         vector<vector<Vector2i>> tmp_pixel_class(voc_colormap.size());// we would ignore black background and object edge
@@ -593,10 +597,10 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
                 }
                 // save binary mask if needed
                 if (!binmask_output_dir.empty()){
-                    string bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".jpg");
-                    string nbin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename,tmp_bin_mask);
-                    imwrite(nbin_mask_filename,~tmp_bin_mask);
+                    auto bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".jpg");
+                    auto nbin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
+                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
                 }
                 
                 bin_masks.push_back(tmp_bin_mask);
@@ -609,15 +613,15 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         {
             auto invert_bin_mask=~bin_masks[i];
             Mat tmp_anchor,tmp_Nanchor;
-            string anchor_filename=output_dir/(OneColorfulMask.stem().string()+"_anchor"+to_string(i)+".jpg");
-            string Nanchor_filename=output_dir/(OneColorfulMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
+            auto anchor_filename=output_dir/(OneColorfulMask.stem().string()+"_anchor"+to_string(i)+".jpg");
+            auto Nanchor_filename=output_dir/(OneColorfulMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(jpeg,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(jpeg,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
-            imwrite(anchor_filename,tmp_anchor);
-            imwrite(Nanchor_filename,tmp_Nanchor);
+            imwrite(anchor_filename.string(),tmp_anchor);
+            imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
         counter++;
         if (print_process){
@@ -651,8 +655,8 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             cout<<"File "<<corres_jpg<<" does not exist."<<endl;
             abort();
         }
-        Mat jpeg=imread(corres_jpg,IMREAD_COLOR);
-        Mat tmp_mask=imread(OneGrayMask,IMREAD_GRAYSCALE );
+        Mat jpeg=imread(corres_jpg.string(),IMREAD_COLOR);
+        Mat tmp_mask=imread(OneGrayMask.string(),IMREAD_GRAYSCALE );
 
         vector<vector<Vector2i>> tmp_pixel_class(coco_colormap.size());// we would ignore unlabeled pixel (255)
         // cout<<"Start pixel-wise match."<<endl;
@@ -697,10 +701,10 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
                 }
                 // save binary mask if needed
                 if (!binmask_output_dir.empty()){
-                    string bin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_binmask"+to_string(i)+".jpg");
-                    string nbin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename,tmp_bin_mask);
-                    imwrite(nbin_mask_filename,~tmp_bin_mask);
+                    auto bin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_binmask"+to_string(i)+".jpg");
+                    auto nbin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
+                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
                 }
                 
                 bin_masks.push_back(tmp_bin_mask);
@@ -713,15 +717,15 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
         {
             auto invert_bin_mask=~bin_masks[i];
             Mat tmp_anchor,tmp_Nanchor;
-            string anchor_filename=output_dir/(OneGrayMask.stem().string()+"_anchor"+to_string(i)+".jpg");
-            string Nanchor_filename=output_dir/(OneGrayMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
+            auto anchor_filename=output_dir/(OneGrayMask.stem().string()+"_anchor"+to_string(i)+".jpg");
+            auto Nanchor_filename=output_dir/(OneGrayMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(jpeg,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(jpeg,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
-            imwrite(anchor_filename,tmp_anchor);
-            imwrite(Nanchor_filename,tmp_Nanchor);
+            imwrite(anchor_filename.string(),tmp_anchor);
+            imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
         counter++;
         if (print_process){
@@ -737,7 +741,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
     for (size_t i = 0; i < RawImages.size(); i++)
     {
         auto OneRawImage=RawImages[i];
-        Mat RawImageMat=imread(OneRawImage,IMREAD_COLOR);
+        Mat RawImageMat=imread(OneRawImage.string(),IMREAD_COLOR);
         auto SegMaskDir=OneRawImage.parent_path()/OneRawImage.stem();
         if (!fs::exists(SegMaskDir)) cout<<SegMaskDir<<" does not exist."<<endl;
         size_t k=0;
@@ -745,7 +749,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
         {
             if(dir_entry.path().string().find(".png")!=string::npos &&
                dir_entry.path().string().find("instance_")!=string::npos ){
-                Mat OneSegMask=imread(dir_entry.path(),IMREAD_GRAYSCALE);
+                Mat OneSegMask=imread(dir_entry.path().string(),IMREAD_GRAYSCALE);
             
                 vector<Vector2i> tmp_pixel_class;// only take pixels with value 255
                 // cout<<"Start pixel-wise match."<<endl;
@@ -772,23 +776,23 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
                     }   
                     // save binary mask if needed
                     if (!binmask_output_dir.empty()){
-                        string bin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_binmask"+to_string(k)+".jpg");
-                        string nbin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_nbinmask"+to_string(k)+".jpg");
-                        imwrite(bin_mask_filename,tmp_bin_mask);
-                        imwrite(nbin_mask_filename,~tmp_bin_mask);
+                        auto bin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_binmask"+to_string(k)+".jpg");
+                        auto nbin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_nbinmask"+to_string(k)+".jpg");
+                        imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                        imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
                     }
                     auto invert_bin_mask=~tmp_bin_mask;
                     Mat tmp_anchor,tmp_Nanchor;
-                    string anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
-                    string Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
+                    auto anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
+                    auto Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
                     k++;
                     // cout<<"before bitwise_and."<<endl;
                     bitwise_and(RawImageMat,tmp_bin_mask,tmp_anchor);
                     // cout<<"between bitwise_and."<<endl;
                     bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
                     // cout<<"after bitwise_and."<<endl;
-                    imwrite(anchor_filename,tmp_anchor);
-                    imwrite(Nanchor_filename,tmp_Nanchor);                        
+                    imwrite(anchor_filename.string(),tmp_anchor);
+                    imwrite(Nanchor_filename.string(),tmp_Nanchor);                        
                 }
                 // cout<<"Pixel-wise match finished."<<endl;
             }
@@ -838,7 +842,7 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
     size_t suffix_len=string("leftImg8bit.png").length();
     for (size_t i = 0; i < RawImages.size(); i++)
     {
-        auto OneRawImage=RawImages[i];
+        auto OneRawImage=RawImages[i].string();
         Mat RawImageMat=imread(OneRawImage);
         string OneColorMask=OneRawImage;
 
@@ -902,10 +906,10 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
                 }
                 // save binary mask if needed
                 if (!binmask_output_dir.empty()){
-                    string bin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_binmask"+to_string(i)+".jpg");
-                    string nbin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename,tmp_bin_mask);
-                    imwrite(nbin_mask_filename,~tmp_bin_mask);
+                    auto bin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_binmask"+to_string(i)+".jpg");
+                    auto nbin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_nbinmask"+to_string(i)+".jpg");
+                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
                 }
                 
                 bin_masks.push_back(tmp_bin_mask);
@@ -918,15 +922,15 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         {
             auto invert_bin_mask=~bin_masks[i];
             Mat tmp_anchor,tmp_Nanchor;
-            string anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(i)+".png");
-            string Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(i)+".png");
+            auto anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(i)+".png");
+            auto Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(i)+".png");
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(RawImageMat,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
-            imwrite(anchor_filename,tmp_anchor);
-            imwrite(Nanchor_filename,tmp_Nanchor);
+            imwrite(anchor_filename.string(),tmp_anchor);
+            imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
 
         if(print_process) {
