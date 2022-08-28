@@ -30,7 +30,7 @@ else() # gcc on linux
     find_package (Eigen3 REQUIRED NO_MODULE)
     find_package(Threads)
     # include_directories( ${OpenCV_INCLUDE_DIRS} )
-    target_link_libraries(dataset_conv ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT} Eigen3::Eigen)
+    target_link_libraries(dataset_conv ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT}) # Eigen3::Eigen
 endif()
 
 # directory of opencv library

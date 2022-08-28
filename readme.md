@@ -12,7 +12,7 @@ Download `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` as you need.
 
 ### [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
 
-Download and extract it to wherever you want. Its directory structure should be the same with below.
+Download and extract it, together with [`SegmentationClassAug`](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0) from [Semantic Boundaries Dataset and Benchmark](http://home.bharathh.info/pubs/codes/SBD/download.html), to wherever you want. Its directory structure should be the same with below.
 
 ```bash
 $ tree /path/to/VOCdevkit/VOC2012 -d
@@ -24,9 +24,10 @@ $ tree /path/to/VOCdevkit/VOC2012 -d
 │   └── Segmentation
 ├── JPEGImages
 ├── SegmentationClass
+├── SegmentationClassAug
 └── SegmentationObject
 
-9 directories
+10 directories
 ```
 
 ### [Cityscapes](https://www.cityscapes-dataset.com/downloads/)
@@ -71,12 +72,12 @@ $ tree /path/to/ADE20K_2021_17_01 -d -L 3
         └── validation
 ```
 
-## usage
+## Usage
 
 Just simply give it your `VOC2012`, `Cityscapes`, `ade20k` or `coco` dataset path.
 
 ```bash
-./dataset_conv --voc_path [path/to/VOCdevkit/VOC2012] --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `/gtFine` and `/leftImg8bit`] --output_dir [desired output directory (default to current dir)]
+./dataset_conv --voc_path [path/to/VOCdevkit contains `VOC2012`] --aug --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `gtFine` and `leftImg8bit`] --output_dir [desired output directory (default to current dir)]
 ```
 
 Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.
