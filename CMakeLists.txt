@@ -6,7 +6,7 @@ find_package( OpenCV REQUIRED )
 find_package(Threads)
 # include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-add_executable(dataset_conv dataset_conv.cpp)
+add_executable(dataset_conv main.cpp)
 
 if(MINGW OR MSVC) # on windows
     # suppose environmant variable `OPENCV_ROOT` points to the installation folder of opencv, which contains `OpenCVConfig.cmake`
