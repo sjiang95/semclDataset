@@ -24,13 +24,15 @@ if(MINGW OR MSVC) # on windows
     link_directories(${OpenCV_LIBRARY_DIRS})
     message(STATUS "OpenCV include path: " ${OpenCV_INCLUDE_DIRS})
     message(STATUS "OpenCV library path: " ${OpenCV_LIBRARY_DIRS})
+    target_link_libraries(dataset_conv ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 else() # gcc on linux
     find_package( OpenCV REQUIRED )
+    find_package (Eigen3 REQUIRED NO_MODULE)
     find_package(Threads)
     # include_directories( ${OpenCV_INCLUDE_DIRS} )
+    target_link_libraries(dataset_conv ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT} Eigen3::Eigen)
 endif()
 
 # directory of opencv library
 # link_directories(${OpenCV_LIBRARY_DIRS})
 # opencv libraries
-target_link_libraries(dataset_conv ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT})
