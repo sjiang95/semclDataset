@@ -6,13 +6,19 @@ This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` 
 |:-:|:-:|
 |![plane](/img4readme/2007_000738_anchor0.jpg)|![non-plane](img4readme/2007_000738_Nanchor0.jpg)|
 
+## Prerequisites
+
+- C++ compiler that fully supports [C++ 20 features](https://en.cppreference.com/w/cpp/20)
+- OpenCV
+- Eigen
+
 ## Prepare datasets
 
-Download `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` as you need.
+Download `VOC2012` (together with [`SegmentationClassAug`](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0) from [Semantic Boundaries Dataset and Benchmark](http://home.bharathh.info/pubs/codes/SBD/download.html)), `Cityscapes`, `ADE20K` or `COCO` as you need.
 
 ### [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
 
-Download and extract it, together with [`SegmentationClassAug`](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0) from [Semantic Boundaries Dataset and Benchmark](http://home.bharathh.info/pubs/codes/SBD/download.html), to wherever you want. Its directory structure should be the same with below.
+Download and extract it to wherever you want. Its directory structure should be the same with below.
 
 ```bash
 $ tree /path/to/VOCdevkit/VOC2012 -d
