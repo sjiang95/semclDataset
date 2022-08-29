@@ -11,7 +11,7 @@
 
 #include<eigen3/Eigen/Dense>
 
-#define percentage_threshold 0.01
+#define percentage_threshold 0.1
 
 using namespace cv;
 using namespace std;
@@ -368,19 +368,19 @@ int main(int argc, char** argv){
                 raw_image_paths.push_back(dir_entry);
             }
         }
+        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
 
         // split all images to threads
         vector<vector<fs::path>> split_masks(numThreads);
         size_t t=0;
-        for (auto const& OneRawImagePath : raw_image_paths) 
+        size_t num_samples_thread=raw_image_paths.size()/numThreads;
+        for (size_t i=0; i<numThreads-1;i++) 
         {
-            if (t>numThreads-1) t=0;
-            if(fs::exists(OneRawImagePath)){
-                split_masks[t].push_back(OneRawImagePath);
-            }
-            t++;
+            vector<fs::path> one_thread_samples(raw_image_paths.begin()+num_samples_thread*i,raw_image_paths.begin()+num_samples_thread*(i+1));
+            split_masks[i]=one_thread_samples;
         }
-        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
+        vector<fs::path> main_thread_samples(raw_image_paths.begin()+num_samples_thread*(numThreads-1),raw_image_paths.end());
+        split_masks[numThreads-1]=main_thread_samples;
         cout<<"Split for "<<split_masks.size()<<" threads. "<<endl;
         for (size_t i = 0; i < split_masks.size(); i++)
         {
@@ -835,7 +835,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
             }
         }
 
-        if(print_process) {
+        if(print_process && i%100==0) {
             double process=i/(double)RawImages.size()*100;
             cout<<"[ADE20k] "<<process<<"%"<<endl;
         }
