@@ -14,7 +14,7 @@ This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` 
 
 ## Prepare datasets
 
-Download `VOC2012` (together with [`SegmentationClassAug`](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0) from [Semantic Boundaries Dataset and Benchmark](http://home.bharathh.info/pubs/codes/SBD/download.html)), `Cityscapes`, `ADE20K` or `COCO` as you need.
+Download `VOC2012` (together with `SegmentationClassAug` from [Semantic Boundaries Dataset and Benchmark](http://home.bharathh.info/pubs/codes/SBD/download.html). Check 2 and 3 [here](https://github.com/kazuto1011/deeplab-pytorch/blob/master/data/datasets/voc12/README.md)), `Cityscapes`, `ADE20K` or `COCO` as you need.
 
 ### [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit)
 
@@ -27,13 +27,18 @@ $ tree /path/to/VOCdevkit/VOC2012 -d
 │   ├── Action
 │   ├── Layout
 │   ├── Main
-│   └── Segmentation
+│   ├── Segmentation
+│   └── SegmentationAug # SBD
+│       ├── test.txt
+│       ├── train_aug.txt
+│       ├── train.txt
+│       ├── trainval_aug.txt
+│       ├── trainval.txt
+│       └── val.txt
 ├── JPEGImages
 ├── SegmentationClass
-├── SegmentationClassAug
+├── SegmentationClassAug # SBD
 └── SegmentationObject
-
-10 directories
 ```
 
 ### [Cityscapes](https://www.cityscapes-dataset.com/downloads/)
