@@ -270,17 +270,14 @@ int main(int argc, char** argv){
         
         // split all images to threads
         vector<vector<fs::path>> split_masks(numThreads);
-        size_t t=0,counter=0;
-        for (auto const& onegraymask : gray_mask_paths) 
+        size_t num_samples_thread=gray_mask_paths.size()/numThreads;
+        for (size_t i=0; i<numThreads-1;i++) 
         {
-            if (t>numThreads-1) t=0;
-            if(fs::exists(onegraymask)){
-                split_masks[t].push_back(onegraymask);
-            }
-            t++;
-            counter++;
-            if (counter%1000==0) cout<<counter/(double)gray_mask_paths.size()*100<<"% allocated."<<endl;
+            vector<fs::path> one_thread_samples(gray_mask_paths.begin()+num_samples_thread*i,gray_mask_paths.begin()+num_samples_thread*(i+1));
+            split_masks[i]=one_thread_samples;
         }
+        vector<fs::path> main_thread_samples(gray_mask_paths.begin()+num_samples_thread*(numThreads-1),gray_mask_paths.end());
+        split_masks[numThreads-1]=main_thread_samples;
         cout<<"Split for "<<split_masks.size()<<" threads. "<<endl;
         for (size_t i = 0; i < split_masks.size(); i++)
         {
@@ -292,9 +289,9 @@ int main(int argc, char** argv){
         thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
-            workers[i]=thread(cocoimg2contrastive,split_masks[i+1],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,false);
+            workers[i]=thread(cocoimg2contrastive,split_masks[i],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,false);
         }   
-        cocoimg2contrastive(split_masks[0],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,true);
+        cocoimg2contrastive(split_masks[numThreads-1],COCORootPath,COCO_OutputPath,COCO_OutputPath_binmask,true);
         for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
         delete [] workers;
 
@@ -768,7 +765,7 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
         counter++;
-        if (print_process){
+        if (print_process && counter%100==0){
             double process=counter/(double)GrayscaleMasks.size()*100;
             cout<<"[COCO] "<<process<<"%"<<endl;
         }
