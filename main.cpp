@@ -11,7 +11,7 @@
 
 #include<eigen3/Eigen/Dense>
 
-#define percentage_threshold 0.1
+#define percentage_threshold 0.01
 
 using namespace cv;
 using namespace std;
@@ -372,7 +372,6 @@ int main(int argc, char** argv){
 
         // split all images to threads
         vector<vector<fs::path>> split_masks(numThreads);
-        size_t t=0;
         size_t num_samples_thread=raw_image_paths.size()/numThreads;
         for (size_t i=0; i<numThreads-1;i++) 
         {
@@ -392,9 +391,9 @@ int main(int argc, char** argv){
         thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
-            workers[i]=thread(adeimg2contrastive,split_masks[i+1],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,false);
+            workers[i]=thread(adeimg2contrastive,split_masks[i],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,false);
         }   
-        adeimg2contrastive(split_masks[0],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,true);
+        adeimg2contrastive(split_masks[numThreads-1],ade_train_paths,ADE_OutputPath,ADE_OutputPath_binmask,true);
         for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
         delete [] workers;
 
@@ -479,19 +478,18 @@ int main(int argc, char** argv){
                 raw_image_paths.push_back(dir_entry);
             }
         }
+        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
 
         // split all images to threads
         vector<vector<fs::path>> split_imgs(numThreads);
-        size_t t=0;
-        for (auto const& OneRawImagePath : raw_image_paths) 
+        size_t num_samples_thread=raw_image_paths.size()/numThreads;
+        for (size_t i=0; i<numThreads-1;i++) 
         {
-            if (t>numThreads-1) t=0;
-            if(fs::exists(OneRawImagePath)){
-                split_imgs[t].push_back(OneRawImagePath);
-            }
-            t++;
+            vector<fs::path> one_thread_samples(raw_image_paths.begin()+num_samples_thread*i,raw_image_paths.begin()+num_samples_thread*(i+1));
+            split_imgs[i]=one_thread_samples;
         }
-        cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
+        vector<fs::path> main_thread_samples(raw_image_paths.begin()+num_samples_thread*(numThreads-1),raw_image_paths.end());
+        split_imgs[numThreads-1]=main_thread_samples;
         cout<<"Split for "<<split_imgs.size()<<" threads. "<<endl;
         for (size_t i = 0; i < split_imgs.size(); i++)
         {
@@ -503,9 +501,9 @@ int main(int argc, char** argv){
         thread *workers=new thread[numThreads-1];
         for (size_t i = 0; i < numThreads-1; i++)
         {
-            workers[i]=thread(cityimg2contrastive,split_imgs[i+1],city_OutputPath,city_OutputPath_binmask,false);
+            workers[i]=thread(cityimg2contrastive,split_imgs[i],city_OutputPath,city_OutputPath_binmask,false);
         }   
-        cityimg2contrastive(split_imgs[0],city_OutputPath,city_OutputPath_binmask,true);
+        cityimg2contrastive(split_imgs[numThreads-1],city_OutputPath,city_OutputPath_binmask,true);
         for (auto &one_thread : ranges::subrange(workers,workers+numThreads-1)) one_thread.join();
         delete [] workers;
 
@@ -970,7 +968,7 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
 
-        if(print_process) {
+        if(print_process && i%100==0) {
             double process=i/(double)RawImages.size()*100;
             cout<<"[Cityscapes] "<<process<<"%"<<endl;
         }
