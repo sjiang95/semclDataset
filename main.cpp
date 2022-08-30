@@ -761,6 +761,8 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             Mat tmp_anchor,tmp_Nanchor;
             auto anchor_filename=output_dir/(OneGrayMask.stem().string()+"_anchor"+to_string(i)+".jpg");
             auto Nanchor_filename=output_dir/(OneGrayMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
+            // Not overwriting the existing file
+            if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(jpeg,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
