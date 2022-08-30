@@ -657,6 +657,8 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             Mat tmp_anchor,tmp_Nanchor;
             auto anchor_filename=output_dir/(OneColorfulMask.stem().string()+"_anchor"+to_string(i)+".jpg");
             auto Nanchor_filename=output_dir/(OneColorfulMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
+            // Not overwriting the existing file
+            if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(jpeg,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
@@ -830,6 +832,8 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
                     auto anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
                     auto Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
                     k++;
+                    // Not overwriting the existing file
+                    if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
                     // cout<<"before bitwise_and."<<endl;
                     bitwise_and(RawImageMat,tmp_bin_mask,tmp_anchor);
                     // cout<<"between bitwise_and."<<endl;
@@ -968,6 +972,8 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
             Mat tmp_anchor,tmp_Nanchor;
             auto anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(i)+".png");
             auto Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(i)+".png");
+            // Not overwriting the existing file
+            if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
             bitwise_and(RawImageMat,bin_masks[i],tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
