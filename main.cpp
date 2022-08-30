@@ -142,22 +142,29 @@ int main(int argc, char** argv){
         vector<string> train_set_filename;
         if(aug_voc){
             voc_original_mask_path=VOCRootPath/"SegmentationClassAug";
-            assert(fs::exists(voc_original_mask_path) && voc_original_mask_path+"dose not exist.");
-            // for `SegmentationClassAug`, acquire mask list directly from filenames
-            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(voc_original_mask_path)){
-                if(dir_entry.path().string().find(".png")!=string::npos){
-                    train_set_filename.push_back(dir_entry.path().stem().string());
-                }
+            // read image list file
+            fs::path train_set_txt=VOCRootPath/"ImageSets"/"SegmentationAug"/"train_aug.txt";
+            assert(fs::exists(voc_original_mask_path) && voc_original_mask_path+" dose not exist.");
+            assert(fs::exists(train_set_txt) && train_set_txt+" dose not exist.");
+            // for `SegmentationClassAug`, acquire mask list directly from `train_aug.txt`
+            ifstream txt;
+            txt.open(train_set_txt);
+            assert(txt.is_open() && "Fail to open "+train_set_txt);
+            string tmp_txt;
+            while(getline(txt,tmp_txt)){
+                train_set_filename.push_back(fs::path(tmp_txt.substr(tmp_txt.find(" ")+1)).stem().string());
             }
+            cout<<train_set_filename.size()<<" training samples retrieved."<<endl;
         }
         else{
             voc_original_mask_path=VOCRootPath/"SegmentationClass";
             // read image list file
             fs::path train_set_txt=VOCRootPath/"ImageSets"/"Segmentation"/"train.txt";
-            assert(fs::exists(train_set_txt) && train_set_txt+"does not exist.");
+            assert(fs::exists(voc_original_mask_path) && voc_original_mask_path+" dose not exist.");
+            assert(fs::exists(train_set_txt) && train_set_txt+" dose not exist.");
             ifstream txt;
             txt.open(train_set_txt);
-            assert(txt.is_open());
+            assert(txt.is_open() && "Fail to open "+train_set_txt);
             string tmp_txt;
             while(getline(txt,tmp_txt)){
                 train_set_filename.push_back(tmp_txt);
@@ -659,7 +666,7 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
         counter++;
-        if (print_process){
+        if (print_process && counter%100==0){
             double process=counter/(double)ColorfulMasks.size()*100;
             cout<<"[VOC2012] "<<process<<"%"<<endl;
         }
