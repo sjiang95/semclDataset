@@ -5,7 +5,7 @@
 #include <fstream>
 #include<chrono>
 
-#include <Eigen/Dense>
+// #include <Eigen/Dense>
 
 #include<opencv2/highgui.hpp>
 #include<opencv2/imgcodecs.hpp>
@@ -16,7 +16,7 @@
 using namespace cv;
 using namespace std;
 namespace fs=std::filesystem;
-using namespace Eigen;
+// using namespace Eigen;
 
 void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process, bool aug);
 void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
@@ -266,12 +266,28 @@ int main(int argc, char** argv){
 
         // create a list of mask paths
         vector<fs::path> gray_mask_paths;
-        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(COCORootPath/"stuffthingmaps_trainval2017"/"train2017"))
-        {
-            if(dir_entry.path().string().find(".png")!=string::npos){
-                gray_mask_paths.push_back(dir_entry);
-                // cout<<dir_entry<<endl;
+        fs::path gray_mask_lists="coco_train_gray_masks.txt";
+        if(fs::exists(gray_mask_lists)){
+            cout<<"Using list "<<gray_mask_lists<<". Delete the file if you want to re-index training samples or dataset root has been changed."<<endl;
+            ifstream ImgList;
+            ImgList.open(gray_mask_lists);
+            assert(ImgList.is_open() && "Fail to open "+gray_mask_lists);
+            string oneline;
+            while(getline(ImgList,oneline)) gray_mask_paths.push_back(oneline.substr(1,oneline.length()-2));
+            assert(raw_image_paths.size()==118287 && "Number of samples from "+gray_mask_lists+" is not equal to total number of COCO training images. Please delete the file to re-index.");
+        }
+        else{
+            cout<<"Indexing raw gray mask lists. This may take a while."<<endl;
+            ofstream ImgList;
+            ImgList.open(gray_mask_lists);
+            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(COCORootPath/"stuffthingmaps_trainval2017"/"train2017"))
+            {
+                if(dir_entry.path().string().find(".png")!=string::npos){
+                    gray_mask_paths.push_back(dir_entry);
+                    ImgList<<dir_entry<<"\n";
+                }
             }
+            ImgList.close();
         }
         cout<<"In total "<<gray_mask_paths.size()<<" original masks."<<endl;
         
@@ -618,7 +634,6 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         // cout<<"Generate binary masks."<<endl;
         vector<Mat> bin_masks;
 
-        // use eigen to compare
         long unsigned int rows=tmp_mask.rows;
         long unsigned int cols=tmp_mask.cols;
         for (size_t i = 0; i < voc_colormap.size(); i++)
@@ -700,83 +715,50 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
         }
         Mat jpeg=imread(corres_jpg.string(),IMREAD_COLOR);
         Mat tmp_mask=imread(OneGrayMask.string(),IMREAD_GRAYSCALE );
+        long unsigned int rows=tmp_mask.rows;
+        long unsigned int cols=tmp_mask.cols;
 
-        vector<vector<Vector2i>> tmp_pixel_class(coco_colormap.size());// we would ignore unlabeled pixel (255)
-        // cout<<"Start pixel-wise match."<<endl;
-        for (size_t r = 0; r < tmp_mask.rows; r++)
-        {
-            for (size_t c = 0; c < tmp_mask.cols; c++)
-            {
-                int GrayValue=tmp_mask.at<uchar>(r,c);
-                Vector2i coordinates(r,c);
-                for (size_t i = 0; i < coco_colormap.size(); i++)
-                {
-                    if(coco_colormap[i]==GrayValue){
-                        tmp_pixel_class[i].push_back(coordinates);
-                        // cout<<"("<<r<<","<<c<<")"<<endl;
-                    }
-                }                
-            }            
-        }
-        // cout<<"Pixel-wise match finished."<<endl;
-
-        // generate binary mask
-        // cout<<"Generate binary masks."<<endl;
         vector<Mat> bin_masks;
-        for (size_t i = 0; i < tmp_pixel_class.size(); i++)
+        for (size_t i = 0; i < coco_colormap.size(); i++)
         {
-            if(tmp_pixel_class[i].empty()){
-                continue;
-            }
-            else if(tmp_pixel_class[i].size()<=percentage_threshold*tmp_mask.rows*tmp_mask.cols){
-                // discard current class if it occupies less than 20% of raw image content
-                continue;
-            }
-            else{
-                // binary mask, initialized to pure black
-                Mat tmp_bin_mask(tmp_mask.size(),CV_8UC3,Scalar(0,0,0));
-                for (size_t j = 0; j < tmp_pixel_class[i].size(); j++)
-                {
-                    size_t pixel_row=tmp_pixel_class[i][j](0);
-                    size_t pixel_col=tmp_pixel_class[i][j](1);
-                    // cout<<"Point "<<j<<": ("<<pixel_row<<","<<pixel_col<<")"<<endl;
-                    tmp_bin_mask.at<Vec3b>(pixel_row,pixel_col)={255,255,255};
-                }
-                // save binary mask if needed
-                if (!binmask_output_dir.empty()){
-                    auto bin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_binmask"+to_string(i)+".jpg");
-                    auto nbin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
-                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
-                }
-                
-                bin_masks.push_back(tmp_bin_mask);
-            }
-        }
-        // cout<<"Generate binary masks finished."<<endl;        
+            Mat tmp_bin_mask(tmp_mask.size(),CV_8UC1,Scalar(0,0,0));
+            tmp_bin_mask=tmp_mask==coco_colormap[i];
+            if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0]<=percentage_threshold*rows*cols*255) continue;
 
+            // save binary mask if needed
+            if (!binmask_output_dir.empty()){
+                auto bin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_binmask"+to_string(i)+".jpg");
+                auto nbin_mask_filename=binmask_output_dir/(OneGrayMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
+                imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
+            }
+            bin_masks.push_back(tmp_bin_mask);
+        }
+        
         vector<Mat> anchor,Nanchor;
         for (size_t i = 0; i < bin_masks.size(); i++)
         {
-            auto invert_bin_mask=~bin_masks[i];
+            Mat bin_mask;
+            cvtColor(bin_masks[i],bin_mask,COLOR_GRAY2BGR);
+            auto invert_bin_mask=~bin_mask;
             Mat tmp_anchor,tmp_Nanchor;
             auto anchor_filename=output_dir/(OneGrayMask.stem().string()+"_anchor"+to_string(i)+".jpg");
             auto Nanchor_filename=output_dir/(OneGrayMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
             // Not overwriting the existing file
             if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
-            bitwise_and(jpeg,bin_masks[i],tmp_anchor);
+            bitwise_and(jpeg,bin_mask,tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(jpeg,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
             imwrite(anchor_filename.string(),tmp_anchor);
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
-        counter++;
         if (print_process && counter%100==0){
             double process=counter/(double)GrayscaleMasks.size()*100;
             cout<<"[COCO] "<<process<<"%"<<endl;
         }
+        counter++;
     }    
 }
 
