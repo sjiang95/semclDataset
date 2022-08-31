@@ -5,8 +5,6 @@
 #include <fstream>
 #include<chrono>
 
-// #include <Eigen/Dense>
-
 #include<opencv2/highgui.hpp>
 #include<opencv2/imgcodecs.hpp>
 #include<opencv2/imgproc.hpp>
@@ -16,7 +14,6 @@
 using namespace cv;
 using namespace std;
 namespace fs=std::filesystem;
-// using namespace Eigen;
 
 void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process, bool aug);
 void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
