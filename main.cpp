@@ -369,11 +369,28 @@ int main(int argc, char** argv){
 
         // create a list of raw image paths
         vector<fs::path> raw_image_paths;
-        for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ade_train_paths))
-        {
-            if(dir_entry.path().string().find(".jpg")!=string::npos){
-                raw_image_paths.push_back(dir_entry);
+        fs::path ade_raw_train_imgs="ade_train_imgs.txt";
+        if(fs::exists(ade_raw_train_imgs)){
+            cout<<"Using list "<<ade_raw_train_imgs<<". Delete the file if you want to re-index training samples or dataset root has been changed."<<endl;
+            ifstream ImgList;
+            ImgList.open(ade_raw_train_imgs);
+            assert(ImgList.is_open() && "Fail to open "+ade_raw_train_imgs);
+            string oneline;
+            while(getline(ImgList,oneline)) raw_image_paths.push_back(oneline.substr(1,oneline.length()-2));
+            assert(raw_image_paths.size()==225574 && "Number of samples from "+ade_raw_train_imgs+" is not equal to total number of ADE20k training images. Please delete the file to re-index.");
+        }
+        else{
+            cout<<"Indexing raw image lists. This may take a while."<<endl;
+            ofstream ImgList;
+            ImgList.open(ade_raw_train_imgs);
+            for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ade_train_paths))
+            {
+                if(dir_entry.path().string().find(".jpg")!=string::npos){
+                    raw_image_paths.push_back(dir_entry);
+                    ImgList<<dir_entry<<"\n";
+                }
             }
+            ImgList.close();
         }
         cout<<"In total "<<raw_image_paths.size()<<" raw images."<<endl;
 
@@ -769,6 +786,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
     for (size_t i = 0; i < RawImages.size(); i++)
     {
         auto OneRawImage=RawImages[i];
+        assert(fs::exists(OneRawImage));
         Mat RawImageMat=imread(OneRawImage.string(),IMREAD_COLOR);
         auto SegMaskDir=OneRawImage.parent_path()/OneRawImage.stem();
         if (!fs::exists(SegMaskDir)) cout<<SegMaskDir<<" does not exist."<<endl;
@@ -778,53 +796,38 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
             if(dir_entry.path().string().find(".png")!=string::npos &&
                dir_entry.path().string().find("instance_")!=string::npos ){
                 Mat OneSegMask=imread(dir_entry.path().string(),IMREAD_GRAYSCALE);
-            
-                vector<Vector2i> tmp_pixel_class;// only take pixels with value 255
-                // cout<<"Start pixel-wise match."<<endl;
-                for (size_t r = 0; r < OneSegMask.rows; r++)
-                {
-                    for (size_t c = 0; c < OneSegMask.cols; c++)
-                    {
-                        int GrayValue=OneSegMask.at<uchar>(r,c);
-                        Vector2i coordinates(r,c);
-                        if(255==GrayValue) tmp_pixel_class.push_back(coordinates);
-                        // cout<<"("<<r<<","<<c<<")"<<endl;
-                    }
+                unsigned int rows=OneSegMask.rows;
+                unsigned int cols=OneSegMask.cols;
+
+                Mat tmp_bin_mask(OneSegMask.size(),CV_8UC1,Scalar(0,0,0));
+                tmp_bin_mask=OneSegMask==255;
+
+                if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0] <=percentage_threshold*rows*cols*255) continue;
+
+                // save binary mask if needed
+                if (!binmask_output_dir.empty()){
+                    auto bin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_binmask"+to_string(k)+".jpg");
+                    auto nbin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_nbinmask"+to_string(k)+".jpg");
+                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
                 }
 
-                if(tmp_pixel_class.size()<=percentage_threshold*OneSegMask.rows*OneSegMask.cols) {
-                    // cout<<"skip"<<endl;
-                    continue;
-                }
-                else {
-                    Mat tmp_bin_mask(OneSegMask.size(),CV_8UC3,Scalar(0,0,0));
-                    for (auto const& OneCoordinate:tmp_pixel_class)
-                    {
-                        tmp_bin_mask.at<Vec3b>(OneCoordinate(0),OneCoordinate(1))={255,255,255};
-                    }   
-                    // save binary mask if needed
-                    if (!binmask_output_dir.empty()){
-                        auto bin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_binmask"+to_string(k)+".jpg");
-                        auto nbin_mask_filename=binmask_output_dir/(OneRawImage.stem().string()+"_nbinmask"+to_string(k)+".jpg");
-                        imwrite(bin_mask_filename.string(),tmp_bin_mask);
-                        imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
-                    }
-                    auto invert_bin_mask=~tmp_bin_mask;
-                    Mat tmp_anchor,tmp_Nanchor;
-                    auto anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
-                    auto Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
-                    k++;
-                    // Not overwriting the existing file
-                    if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
-                    // cout<<"before bitwise_and."<<endl;
-                    bitwise_and(RawImageMat,tmp_bin_mask,tmp_anchor);
-                    // cout<<"between bitwise_and."<<endl;
-                    bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
-                    // cout<<"after bitwise_and."<<endl;
-                    imwrite(anchor_filename.string(),tmp_anchor);
-                    imwrite(Nanchor_filename.string(),tmp_Nanchor);                        
-                }
-                // cout<<"Pixel-wise match finished."<<endl;
+                Mat tmp_bin_mask_3c;
+                cvtColor(tmp_bin_mask,tmp_bin_mask_3c,COLOR_GRAY2BGR);
+                Mat invert_bin_mask_3c=~tmp_bin_mask_3c;
+                Mat tmp_anchor,tmp_Nanchor;
+                auto anchor_filename=output_dir/(OneRawImage.stem().string()+"_anchor"+to_string(k)+".jpg");
+                auto Nanchor_filename=output_dir/(OneRawImage.stem().string()+"_Nanchor"+to_string(k)+".jpg");
+                k++;
+                // Not overwriting the existing file
+                if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
+                // cout<<"before bitwise_and."<<endl;
+                bitwise_and(RawImageMat,tmp_bin_mask_3c,tmp_anchor);
+                // cout<<"between bitwise_and."<<endl;
+                bitwise_and(RawImageMat,invert_bin_mask_3c,tmp_Nanchor);
+                // cout<<"after bitwise_and."<<endl;
+                imwrite(anchor_filename.string(),tmp_anchor);
+                imwrite(Nanchor_filename.string(),tmp_Nanchor);                        
             }
         }
 
