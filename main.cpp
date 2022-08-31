@@ -1,7 +1,3 @@
-#include<opencv2/highgui.hpp>
-#include<opencv2/imgcodecs.hpp>
-#include<opencv2/imgproc.hpp>
-
 #include<iostream>
 #include<filesystem>
 #include<string>
@@ -9,7 +5,11 @@
 #include <fstream>
 #include<chrono>
 
-#include<eigen3/Eigen/Dense>
+#include <Eigen/Dense>
+
+#include<opencv2/highgui.hpp>
+#include<opencv2/imgcodecs.hpp>
+#include<opencv2/imgproc.hpp>
 
 #define percentage_threshold 0.01
 
@@ -549,12 +549,12 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
     // Following voc_colormap is from
     // https://albumentations.ai/docs/autoalbument/examples/pascal_voc/
     // black background is removed
-    vector<vector<uint>> voc_colormap;
+    vector<vector<uint8_t>> voc_colormap;
     if (aug){
         // From the README of Semantic Boundaries Dataset(SBD): Pixels that belong to category k have value k, pixels that do not belong to any category have value 0.
-        for (uint i = 0; i < 20; i++) 
+        for (uint8_t i = 1; i <= 20; i++) 
         {
-            voc_colormap.push_back({i+1,i+1,i+1});
+            voc_colormap.push_back({i,i,i});
         }
     }
     else{
@@ -594,84 +594,68 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         Mat jpeg=imread(corres_jpeg.string());
         Mat tmp_mask=imread(OneColorfulMask.string());
         cvtColor(tmp_mask,tmp_mask,COLOR_BGR2RGB);
+        Mat channels[3];
+        split(tmp_mask, channels);
 
         vector<vector<Vector2i>> tmp_pixel_class(voc_colormap.size());// we would ignore black background and object edge
-        // cout<<"Start pixel-wise match."<<endl;
-        for (size_t r = 0; r < tmp_mask.rows; r++)
-        {
-            for (size_t c = 0; c < tmp_mask.cols; c++)
-            {
-                auto pixelRGB=tmp_mask.at<Vec3b>(r,c);
-                vector<uint> tmp_RGB={pixelRGB[0],pixelRGB[1],pixelRGB[2]};
-                Vector2i coordinates(r,c);
-                for (size_t i = 0; i < voc_colormap.size(); i++)
-                {
-                    if(voc_colormap[i]==tmp_RGB){
-                        tmp_pixel_class[i].push_back(coordinates);
-                        // cout<<"("<<r<<","<<c<<")"<<endl;
-                    }
-                }                
-            }            
-        }
-        // cout<<"Pixel-wise match finished."<<endl;
         
         // generate binary mask
         // cout<<"Generate binary masks."<<endl;
         vector<Mat> bin_masks;
-        for (size_t i = 0; i < tmp_pixel_class.size(); i++)
+
+        // use eigen to compare
+        long unsigned int rows=tmp_mask.rows;
+        long unsigned int cols=tmp_mask.cols;
+        for (size_t i = 0; i < voc_colormap.size(); i++)
         {
-            if(tmp_pixel_class[i].empty()){
-                continue;
+            Mat tmp_bin_mask(tmp_mask.size(),CV_8UC1,Scalar(0,0,0));
+            // auto current_voc_colormap=voc_colormap[i];
+            // cout<<"current_voc_colormap: "<<current_voc_colormap[0]<<endl;
+            Mat comp_c0=channels[0]==voc_colormap[i][0];
+            Mat comp_c1=channels[1]==voc_colormap[i][1];
+            Mat comp_c2=channels[2]==voc_colormap[i][2];
+            // cout<<comp_c0.size()<<endl;
+            // cout<<comp_c0.type()<<endl;
+            tmp_bin_mask=comp_c0.mul(comp_c1).mul(comp_c2); // element-wise multiplication
+            // cout<<tmp_bin_mask.size()<<endl;
+            // cout<<tmp_bin_mask.type()<<endl;
+            if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0]<=percentage_threshold*rows*cols*255) continue;
+
+            // save binary mask if needed
+            if (!binmask_output_dir.empty()){
+                auto bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".png");
+                auto nbin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_nbinmask"+to_string(i)+".png");
+                imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                // cout<<"Save binary mask "<<bin_mask_filename<<endl;
+                imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
             }
-            else if(tmp_pixel_class[i].size()<=percentage_threshold*tmp_mask.rows*tmp_mask.cols){
-                // discard current class if it occupies less than 20% of raw image content
-                continue;
-            }
-            else{
-                // binary mask, initialized to pure black
-                Mat tmp_bin_mask(tmp_mask.size(),CV_8UC3,Scalar(0,0,0));
-                for (size_t j = 0; j < tmp_pixel_class[i].size(); j++)
-                {
-                    size_t pixel_row=tmp_pixel_class[i][j](0);
-                    size_t pixel_col=tmp_pixel_class[i][j](1);
-                    // cout<<"Point "<<j<<": ("<<pixel_row<<","<<pixel_col<<")"<<endl;
-                    tmp_bin_mask.at<Vec3b>(pixel_row,pixel_col)={255,255,255};
-                }
-                // save binary mask if needed
-                if (!binmask_output_dir.empty()){
-                    auto bin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_binmask"+to_string(i)+".jpg");
-                    auto nbin_mask_filename=binmask_output_dir/(OneColorfulMask.stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
-                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
-                }
-                
-                bin_masks.push_back(tmp_bin_mask);
-            }
+            bin_masks.push_back(tmp_bin_mask);
         }
-        // cout<<"Generate binary masks finished."<<endl;        
         
         vector<Mat> anchor,Nanchor;
         for (size_t i = 0; i < bin_masks.size(); i++)
         {
-            auto invert_bin_mask=~bin_masks[i];
+            Mat bin_mask;
+            cvtColor(bin_masks[i],bin_mask,COLOR_GRAY2BGR);
+            auto invert_bin_mask=~bin_mask;
             Mat tmp_anchor,tmp_Nanchor;
             auto anchor_filename=output_dir/(OneColorfulMask.stem().string()+"_anchor"+to_string(i)+".jpg");
             auto Nanchor_filename=output_dir/(OneColorfulMask.stem().string()+"_Nanchor"+to_string(i)+".jpg");
             // Not overwriting the existing file
             if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
-            bitwise_and(jpeg,bin_masks[i],tmp_anchor);
+            bitwise_and(jpeg,bin_mask,tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(jpeg,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
             imwrite(anchor_filename.string(),tmp_anchor);
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
-        counter++;
         if (print_process && counter%100==0){
             double process=counter/(double)ColorfulMasks.size()*100;
             cout<<"[VOC2012] "<<process<<"%"<<endl;
         }
+        counter++;
     }
 }
 
