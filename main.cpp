@@ -597,8 +597,6 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         Mat channels[3];
         split(tmp_mask, channels);
 
-        vector<vector<Vector2i>> tmp_pixel_class(voc_colormap.size());// we would ignore black background and object edge
-        
         // generate binary mask
         // cout<<"Generate binary masks."<<endl;
         vector<Mat> bin_masks;
@@ -839,7 +837,7 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
 
 void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
     // design of this function is referred to Cityscapes dataset structure
-    vector<vector<int>> city_colormap={
+    vector<vector<uint8_t>> city_colormap={
         // {0,0,0}, //ignore black background
         {111, 74, 0},
         {81, 0, 81},
@@ -874,7 +872,7 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
     size_t suffix_len=string("leftImg8bit.png").length();
     for (size_t i = 0; i < RawImages.size(); i++)
     {
-        auto OneRawImage=RawImages[i].string();
+        string OneRawImage=RawImages[i].string();
         Mat RawImageMat=imread(OneRawImage);
         string OneColorMask=OneRawImage;
 
@@ -888,78 +886,47 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         
 
         auto SegMaskDir=OneColorMask.insert(OneColorMask.find(".png"),"_color");
-        if (!fs::exists(SegMaskDir)) {
-            cout<<SegMaskDir<<" does not exist."<<endl;
-            abort();
-        }
+        assert(fs::exists(SegMaskDir) && SegMaskDir+" does not exist.");
         Mat OneSegMask=imread(SegMaskDir);
+        unsigned int rows=OneSegMask.rows;
+        unsigned int cols=OneSegMask.cols;
+
         cvtColor(OneSegMask,OneSegMask,COLOR_BGR2RGB);
+        Mat channels[3];
+        split(OneSegMask, channels);
 
-        vector<vector<Vector2i>> tmp_pixel_class(city_colormap.size());// only take pixels with value 255
-        // cout<<"Start pixel-wise match."<<endl;
-        for (size_t r = 0; r < OneSegMask.rows; r++)
-        {
-            for (size_t c = 0; c < OneSegMask.cols; c++)
-            {
-                auto pixelRGB=OneSegMask.at<Vec3b>(r,c);
-                vector<int> tmp_RGB={pixelRGB[0],pixelRGB[1],pixelRGB[2]};
-                Vector2i coordinates(r,c);
-                for (size_t i = 0; i < city_colormap.size(); i++)
-                {
-                    if(city_colormap[i]==tmp_RGB){
-                        tmp_pixel_class[i].push_back(coordinates);
-                        // cout<<"("<<r<<","<<c<<")"<<endl;
-                    }
-                }
-            }
-        }
-
-        // generate binary mask
-        // cout<<"Generate binary masks."<<endl;
         vector<Mat> bin_masks;
-        for (size_t i = 0; i < tmp_pixel_class.size(); i++)
+        for (size_t i = 0; i < city_colormap.size(); i++)
         {
-            if(tmp_pixel_class[i].empty()){
-                continue;
+            Mat comp_c0=channels[0]==city_colormap[i][0];
+            Mat comp_c1=channels[1]==city_colormap[i][1];
+            Mat comp_c2=channels[2]==city_colormap[i][2];
+            Mat tmp_bin_mask(OneSegMask.size(),CV_8UC1,Scalar(0,0,0));
+            tmp_bin_mask=comp_c0.mul(comp_c1).mul(comp_c2); // element-wise multiplication
+            if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0]<=percentage_threshold*rows*cols*255) continue;
+                    // save binary mask if needed
+            if (!binmask_output_dir.empty()){
+                auto bin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_binmask"+to_string(i)+".png");
+                auto nbin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_nbinmask"+to_string(i)+".png");
+                imwrite(bin_mask_filename.string(),tmp_bin_mask);
+                imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
             }
-            else if(tmp_pixel_class[i].size()<=percentage_threshold*OneSegMask.rows*OneSegMask.cols){
-                // discard current class if it occupies less than 20% of raw image content
-                continue;
-            }
-            else{
-                // binary mask, initialized to pure black
-                Mat tmp_bin_mask(OneSegMask.size(),CV_8UC3,Scalar(0,0,0));
-                for (size_t j = 0; j < tmp_pixel_class[i].size(); j++)
-                {
-                    size_t pixel_row=tmp_pixel_class[i][j](0);
-                    size_t pixel_col=tmp_pixel_class[i][j](1);
-                    // cout<<"Point "<<j<<": ("<<pixel_row<<","<<pixel_col<<")"<<endl;
-                    tmp_bin_mask.at<Vec3b>(pixel_row,pixel_col)={255,255,255};
-                }
-                // save binary mask if needed
-                if (!binmask_output_dir.empty()){
-                    auto bin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_binmask"+to_string(i)+".jpg");
-                    auto nbin_mask_filename=binmask_output_dir/(fs::path(SegMaskDir).stem().string()+"_nbinmask"+to_string(i)+".jpg");
-                    imwrite(bin_mask_filename.string(),tmp_bin_mask);
-                    imwrite(nbin_mask_filename.string(),~tmp_bin_mask);
-                }
-                
-                bin_masks.push_back(tmp_bin_mask);
-            }
+            bin_masks.push_back(tmp_bin_mask);
         }
-        // cout<<"Generate binary masks finished."<<endl;        
 
         vector<Mat> anchor,Nanchor;
-        for (size_t i = 0; i < bin_masks.size(); i++)
+        for (size_t j = 0; j < bin_masks.size(); j++)
         {
-            auto invert_bin_mask=~bin_masks[i];
+            Mat bin_mask;
+            cvtColor(bin_masks[j],bin_mask,COLOR_GRAY2BGR);
+            auto invert_bin_mask=~bin_mask;
             Mat tmp_anchor,tmp_Nanchor;
-            auto anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(i)+".png");
-            auto Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(i)+".png");
+            auto anchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_anchor"+to_string(j)+".png");
+            auto Nanchor_filename=output_dir/(fs::path(SegMaskDir).stem().string()+"_Nanchor"+to_string(j)+".png");
             // Not overwriting the existing file
             if(fs::exists(anchor_filename)&&fs::exists(Nanchor_filename)) continue;
             // cout<<"before bitwise_and."<<endl;
-            bitwise_and(RawImageMat,bin_masks[i],tmp_anchor);
+            bitwise_and(RawImageMat,bin_mask,tmp_anchor);
             // cout<<"between bitwise_and."<<endl;
             bitwise_and(RawImageMat,invert_bin_mask,tmp_Nanchor);
             // cout<<"after bitwise_and."<<endl;
@@ -967,7 +934,7 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
 
-        if(print_process && i%100==0) {
+        if(print_process && i%20==0) {//
             double process=i/(double)RawImages.size()*100;
             cout<<"[Cityscapes] "<<process<<"%"<<endl;
         }
