@@ -751,9 +751,9 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             imwrite(anchor_filename.string(),tmp_anchor);
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
-        if (print_process && counter%100==0 && i>0){
+        if (print_process && counter%100==0 && counter>0){
             auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
-            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            auto eta=system_clock::now()+seconds(dur/counter*(GrayscaleMasks.size()-counter));//
             std::time_t tt=system_clock::to_time_t(eta);
             double process=counter/(double)GrayscaleMasks.size()*100;
             cout<<"[COCO] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
