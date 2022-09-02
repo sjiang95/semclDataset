@@ -4,6 +4,7 @@
 #include<thread>
 #include <fstream>
 #include<chrono>
+#include<ctime>
 
 #include<opencv2/highgui.hpp>
 #include<opencv2/imgcodecs.hpp>
@@ -14,6 +15,7 @@
 using namespace cv;
 using namespace std;
 namespace fs=std::filesystem;
+using namespace chrono;
 
 void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process, bool aug);
 void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process);
@@ -700,6 +702,7 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
     }
     auto RawImagePath=coco_root/"train2017";
     size_t counter=0;
+    auto start=high_resolution_clock::now();
     for (auto const& OneGrayMask:GrayscaleMasks)
     {
         auto corres_jpg=RawImagePath/(OneGrayMask.stem().string()+".jpg");
@@ -748,9 +751,12 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             imwrite(anchor_filename.string(),tmp_anchor);
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
-        if (print_process && counter%100==0){
+        if (print_process && counter%100==0 && i>0){
+            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
+            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            std::time_t tt=system_clock::to_time_t(eta);
             double process=counter/(double)GrayscaleMasks.size()*100;
-            cout<<"[COCO] "<<process<<"%"<<endl;
+            cout<<"[COCO] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
         counter++;
     }    
@@ -759,6 +765,7 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
 void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
     // design of this function is referred to ADE20K dataset structure
     // https://github.com/CSAILVision/ADE20K#structure
+    auto start=high_resolution_clock::now();
     for (size_t i = 0; i < RawImages.size(); i++)
     {
         auto OneRawImage=RawImages[i];
@@ -807,9 +814,12 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
             }
         }
 
-        if(print_process && i%100==0) {
+        if(print_process && i%100==0 && i>0) {//
+            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
+            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            std::time_t tt=system_clock::to_time_t(eta);
             double process=i/(double)RawImages.size()*100;
-            cout<<"[ADE20k] "<<process<<"%"<<endl;
+            cout<<"[ADE20k] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
     }    
 }
@@ -849,6 +859,7 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         {0, 0, 142}
     };
     size_t suffix_len=string("leftImg8bit.png").length();
+    auto start=high_resolution_clock::now();
     for (size_t i = 0; i < RawImages.size(); i++)
     {
         string OneRawImage=RawImages[i].string();
@@ -913,9 +924,12 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
 
-        if(print_process && i%20==0) {//
+        if(print_process && i%20==0 && i>0) {//
+            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
+            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            std::time_t tt=system_clock::to_time_t(eta);
             double process=i/(double)RawImages.size()*100;
-            cout<<"[Cityscapes] "<<process<<"%"<<endl;
+            cout<<"[Cityscapes] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
     }    
 }
