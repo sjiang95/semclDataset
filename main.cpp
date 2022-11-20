@@ -201,7 +201,7 @@ int main(int argc, char** argv){
         delete [] workers;
 
         // write a filename list of all images
-        cout<<"Writing to `VOC_ImgList.csv`. This may take a while."<<endl;
+        cout<<"Writing to `VOC_ImgList.txt`. This may take a while."<<endl;
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
         for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(VOC_OutputPath))
         {
@@ -217,11 +217,10 @@ int main(int argc, char** argv){
         // sort filenames
         sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
-        // write to .csv file
+        // write to .txt file
         ofstream ImgList;
-        ImgList.open(GlobalOutputPath/OutputSurfix/"VOC_ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"VOC_ImgList.txt");
         // header
-        ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
             ImgList<<"voc/"+vec_AnchorFilename[i]<<","<<"voc/"+vec_NanchorFilename[i]<<"\n";
@@ -330,11 +329,10 @@ int main(int argc, char** argv){
         // sort filenames
         sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
-        // write to .csv file
+        // write to .txt file
         ofstream ImgList;
-        ImgList.open(GlobalOutputPath/OutputSurfix/"COCO_ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"COCO_ImgList.txt");
         // header
-        ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
             ImgList<<"coco/"+vec_AnchorFilename[i]<<","<<"coco/"+vec_NanchorFilename[i]<<"\n";
@@ -434,7 +432,7 @@ int main(int argc, char** argv){
         delete [] workers;
 
         // write a filename list of all images
-        cout<<"Writing to `ADE_ImgList.csv`. This may take a while."<<endl;
+        cout<<"Writing to `ADE_ImgList.txt`. This may take a while."<<endl;
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
         for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(ADE_OutputPath))
             {
@@ -450,11 +448,10 @@ int main(int argc, char** argv){
         // sort filenames
         sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
-        // write to .csv file
+        // write to .txt file
         ofstream ImgList;
-        ImgList.open(GlobalOutputPath/OutputSurfix/"ADE_ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"ADE_ImgList.txt");
         // header
-        ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
             ImgList<<"ade20k/"+vec_AnchorFilename[i]<<","<<"ade20k/"+vec_NanchorFilename[i]<<"\n";
@@ -544,7 +541,7 @@ int main(int argc, char** argv){
         delete [] workers;
 
         // write a filename list of all images
-        cout<<"Writing to `Cityscapes_ImgList.csv`. This may take a while."<<endl;
+        cout<<"Writing to `Cityscapes_ImgList.txt`. This may take a while."<<endl;
         vector<string> vec_AnchorFilename,vec_NanchorFilename;
         for (const fs::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(city_OutputPath))
             {
@@ -560,11 +557,10 @@ int main(int argc, char** argv){
         // sort filenames
         sort(vec_AnchorFilename.begin(),vec_AnchorFilename.end());
         sort(vec_NanchorFilename.begin(),vec_NanchorFilename.end());
-        // write to .csv file
+        // write to .txt file
         ofstream ImgList;
-        ImgList.open(GlobalOutputPath/OutputSurfix/"Cityscapes_ImgList.csv");
+        ImgList.open(GlobalOutputPath/OutputSurfix/"Cityscapes_ImgList.txt");
         // header
-        ImgList<<"anchor,nanchor\n";
         for (size_t i = 0; i < vec_AnchorFilename.size(); i++)
         {
             ImgList<<"cityscapes/"+vec_AnchorFilename[i]<<","<<"cityscapes/"+vec_NanchorFilename[i]<<"\n";

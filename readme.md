@@ -95,15 +95,15 @@ Outputs will be written to `ContrastivePairs` in the path `--output_dir` points 
 ```bash
 $ tree /path/to/ContrastivePairs -L 1
 ├── ade20k
-├── ADE_ImgList.csv
+├── ADE_ImgList.txt
 ├── cityscapes
-├── Cityscapes_ImgList.csv
+├── Cityscapes_ImgList.txt
 ├── coco
-├── COCO_ImgList.csv
+├── COCO_ImgList.txt
 ├── voc
-└── VOC_ImgList.csv
+└── VOC_ImgList.txt
 
 4 directories, 4 files
 ```
 
-Those `*_ImgList.csv` files will be read by `dataloader` in training program.
+Those `*_ImgList.txt` files will be read by `dataloader` in training program.
