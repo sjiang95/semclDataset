@@ -87,7 +87,7 @@ $ tree /path/to/ADE20K_2021_17_01 -d -L 3
 Just simply give it your `VOC2012`, `Cityscapes`, `ade20k` or `coco` dataset path.
 
 ```bash
-./dataset_conv --voc_path [path/to/VOCdevkit contains `VOC2012`] --aug --coco_path [/path/to/coco] --ade_path [/path/to/ADE20K_2021_17_01] --city_path [/path/to/cityscapes contains `gtFine` and `leftImg8bit`] --output_dir [desired output directory (default to current dir)]
+./dataset_conv --voc12 [path/to/VOCdevkit contains `VOC2012`] --aug --coco [/path/to/coco] --ade [/path/to/ADE20K_2021_17_01] --city [/path/to/cityscapes contains `gtFine` and `leftImg8bit`] --output_dir [desired output directory (default to current dir)]
 ```
 
 Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.

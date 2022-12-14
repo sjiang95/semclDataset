@@ -43,7 +43,7 @@ int main(int argc, char** argv){
     if (argc!=1){
         for (size_t i = 1; i < argc; )
         {
-            if(string("--voc_path").compare(argv[i])==0){
+            if(string("--voc12").compare(argv[i])==0){
                 flag_voc=true;
                 VOCRootPath=argv[i+1];
                 cout<<"Given VOCRootPath: "<<VOCRootPath<<endl;
@@ -52,25 +52,25 @@ int main(int argc, char** argv){
             }
             else if(string("--aug").compare(argv[i])==0){
                 aug_voc=true;
-                cout<<"Use `SegmentationClassAug` for VOC."<<endl;
+                cout<<"Use `SegmentationClassAug` for VOC2012."<<endl;
                 i=i+1;
                 continue;
             }
-            else if(string("--ade_path").compare(argv[i])==0){
+            else if(string("--ade").compare(argv[i])==0){
                 flag_ade=true;
                 ADERootPath=argv[i+1];
                 cout<<"Given ADERootPath: "<<ADERootPath<<endl;
                 i=i+2;
                 continue;
             }
-            else if(string("--coco_path").compare(argv[i])==0){
+            else if(string("--coco").compare(argv[i])==0){
                 flag_coco=true;
                 COCORootPath=argv[i+1];
                 cout<<"Given COCORootPath: "<<COCORootPath<<endl;
                 i=i+2;
                 continue;
             }
-            else if(string("--city_path").compare(argv[i])==0){
+            else if(string("--city").compare(argv[i])==0){
                 flag_city=true;
                 CityRootPath=argv[i+1];
                 cout<<"Given CityscapesRootPath: "<<CityRootPath<<endl;
