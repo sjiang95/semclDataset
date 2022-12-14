@@ -1,3 +1,5 @@
 build
 .vscode
 ContrastivePairs
+ade_train_imgs.txt
+coco_train_gray_masks.txt
