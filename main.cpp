@@ -619,6 +619,8 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         Mat jpeg=imread(corres_jpeg.string());
         Mat tmp_mask=imread(OneColorfulMask.string());
         cvtColor(tmp_mask,tmp_mask,COLOR_BGR2RGB);
+        Mat channels[3];
+        split(tmp_mask, channels);
 
         // generate binary mask
         // cout<<"Generate binary masks."<<endl;
@@ -630,7 +632,14 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
         {
             // auto current_voc_colormap=voc_colormap[i];
             // cout<<"current_voc_colormap: "<<current_voc_colormap[0]<<endl;
-            Mat tmp_bin_mask=tmp_mask==Scalar(voc_colormap[i][0],voc_colormap[i][1],voc_colormap[i][2]); // element-wise multiplication
+            Mat comp_c0=(channels[0]==voc_colormap[i][0])/255; // rescale mask elements to 0 and 1
+            // The result of comparison is an 8-bit single channel mask whose elements are set to 255 (if the particular element or pair of elements satisfy the condition) or 0.
+            // See "Detailed Description" section in https://docs.opencv.org/4.x/d1/d10/classcv_1_1MatExpr.html.
+            Mat comp_c1=(channels[1]==voc_colormap[i][1])/255;
+            Mat comp_c2=(channels[2]==voc_colormap[i][2])/255;
+            // cout<<comp_c0.size()<<endl;
+            // cout<<comp_c0.type()<<endl;
+            Mat tmp_bin_mask=comp_c0.mul(comp_c1).mul(comp_c2)*255; // element-wise multiplication
             // cout<<tmp_bin_mask.size()<<endl;
             // cout<<tmp_bin_mask.type()<<endl;
             if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0]<=percentage_threshold*rows*cols*255) continue;
@@ -868,11 +877,18 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         unsigned int cols=OneSegMask.cols;
 
         cvtColor(OneSegMask,OneSegMask,COLOR_BGR2RGB);
+        Mat channels[3];
+        split(OneSegMask, channels);
 
         vector<Mat> bin_masks;
         for (size_t i = 0; i < city_colormap.size(); i++)
         {
-            Mat tmp_bin_mask=OneSegMask==Scalar(city_colormap[i][0],city_colormap[i][1],city_colormap[i][2]); // element-wise multiplication
+            Mat comp_c0=(channels[0]==city_colormap[i][0])/255; // rescale mask elements to 0 and 1
+            // The result of comparison is an 8-bit single channel mask whose elements are set to 255 (if the particular element or pair of elements satisfy the condition) or 0.
+            // See "Detailed Description" section in https://docs.opencv.org/4.x/d1/d10/classcv_1_1MatExpr.html.
+            Mat comp_c1=(channels[1]==city_colormap[i][1])/255;
+            Mat comp_c2=(channels[2]==city_colormap[i][2])/255;
+            Mat tmp_bin_mask=comp_c0.mul(comp_c1).mul(comp_c2)*255; // element-wise multiplication
             if(sum(tmp_bin_mask)[0]==0||sum(tmp_bin_mask)[0]<=percentage_threshold*rows*cols*255) continue;
                     // save binary mask if needed
             if (!binmask_output_dir.empty()){
