@@ -1,4 +1,4 @@
-# dataset_conv
+# SemCLDataset
 
 This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` datasets into anchor & non-anchor pairs for contrastive learning.
 
@@ -105,10 +105,10 @@ An executable `dataset_conv` would be generated.
 Just simply give it your `VOC2012`, `Cityscapes`, `ade20k` or `coco` dataset path.
 
 ```bash
-./dataset_conv --voc12 [path/to/VOCdevkit contains `VOC2012`] --aug --coco [/path/to/coco] --ade [/path/to/ADE20K_2021_17_01] --city [/path/to/cityscapes contains `gtFine` and `leftImg8bit`] --output_dir [desired output directory (default to current dir)]
+/path/to/dataset_conv --voc12 [path/to/VOCdevkit contains `VOC2012`] --aug --coco [/path/to/coco] --ade [/path/to/ADE20K_2021_17_01] --city [/path/to/cityscapes contains `gtFine` and `leftImg8bit`] --output_dir [desired output directory (default to current dir)]
 ```
 
-Outputs will be written to `ContrastivePairs` in the path `--output_dir` points to.
+Outputs will be written to `ContrastivePairs` under the path `--output_dir` points to.
 
 ```bash
 $ tree /path/to/ContrastivePairs -L 1
