@@ -82,6 +82,24 @@ $ tree /path/to/ADE20K_2021_17_01 -d -L 3
         └── validation
 ```
 
+## Build
+
+```bash
+cd semclDataset
+mkdir build;cd build
+cmake -GNinja ..
+ninja
+```
+
+Please note that although we use `ninja` here, you can use any other available generator as you wish. For example, if you prefer `make`
+
+```bash
+cmake -GMake ..
+make -j${nproc}
+```
+
+An executable `dataset_conv` would be generated.
+
 ## Usage
 
 Just simply give it your `VOC2012`, `Cityscapes`, `ade20k` or `coco` dataset path.
