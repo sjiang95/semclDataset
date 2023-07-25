@@ -823,18 +823,11 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
     // design of this function is referred to Cityscapes dataset structure
     vector<vector<uint8_t>> city_colormap={
         // {0,0,0}, //ignore black background
-        {111, 74, 0},
-        {81, 0, 81},
         {128, 64, 128},
         {244, 35, 232},
-        {250, 170, 160},
-        {230, 150, 140},
         {70, 70, 70},
         {102, 102, 156},
         {190, 153, 153},
-        {180, 165, 180},
-        {150, 100, 100},
-        {150, 120, 90},
         {153, 153, 153},
         {250, 170, 30},
         {220, 220, 0},
@@ -846,12 +839,9 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         {0, 0, 142},
         {0, 0, 70},
         {0, 60, 100},
-        {0, 0, 90},
-        {0, 0, 110},
         {0, 80, 100},
         {0, 0, 230},
         {119, 11, 32},
-        {0, 0, 142}
     };
     size_t suffix_len=string("leftImg8bit.png").length();
     auto start=high_resolution_clock::now();
