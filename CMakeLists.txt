@@ -16,7 +16,7 @@ if(MINGW OR MSVC) # on windows
         set(OpenCV_LIBRARY_DIRS $ENV{OPENCV_ROOT}/x64/vc17/lib)# vc17==vs2022
     endif()
 endif()
-find_package( OpenCV REQUIRED COMPONENTS highgui imgcodecs imgproc)
+find_package(OpenCV REQUIRED COMPONENTS highgui imgcodecs imgproc)
 message(STATUS "OpenCV include path: " ${OpenCV_INCLUDE_DIRS})
 message(STATUS "OpenCV library path: " ${OpenCV_LIBRARY_DIRS})
 
