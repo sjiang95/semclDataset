@@ -609,6 +609,7 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
     
     auto jpegPath=voc_root/"JPEGImages";
     size_t counter=0;
+    auto start=high_resolution_clock::now();
     for(auto const& OneColorfulMask: ColorfulMasks){
         auto corres_jpeg=jpegPath/(OneColorfulMask.stem().string()+".jpg");
 
@@ -674,9 +675,14 @@ void vocimg2contrastive(vector<fs::path> ColorfulMasks, fs::path voc_root, fs::p
             imwrite(anchor_filename.string(),tmp_anchor);
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
-        if (print_process && counter%100==0){
+        if (print_process && counter%100==0 && counter>0){
+            std::chrono::duration<double> dur=high_resolution_clock::now()-start;// in seconds
+            auto now=system_clock::now();
+            auto restT=dur.count()/counter*(ColorfulMasks.size()-counter);
+            auto eta=now+seconds(int(round(restT)));//
+            std::time_t tt=system_clock::to_time_t(eta);
             double process=counter/(double)ColorfulMasks.size()*100;
-            cout<<"[VOC2012] "<<process<<"%"<<endl;
+            cout<<"[VOC2012] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
         counter++;
     }
