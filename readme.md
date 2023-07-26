@@ -9,7 +9,7 @@ This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` 
 ## Prerequisites
 
 - C++ compiler that fully supports [C++ 20 feature of `ranges`](https://en.cppreference.com/w/cpp/20)
-- OpenCV
+- OpenCV(tested on `>=4.7.0`, lower versions should also work)
 
 ## Prepare datasets
 
