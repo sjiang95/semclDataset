@@ -748,14 +748,16 @@ void cocoimg2contrastive(vector<fs::path> GrayscaleMasks, fs::path coco_root, fs
             imwrite(Nanchor_filename.string(),tmp_Nanchor);
         }
         if (print_process && counter%100==0 && counter>0){
-            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
-            auto eta=system_clock::now()+seconds(dur/counter*(GrayscaleMasks.size()-counter));//
+            std::chrono::duration<double> dur=high_resolution_clock::now()-start;// in seconds
+            auto now=system_clock::now();
+            auto restT=dur.count()/counter*(GrayscaleMasks.size()-counter);
+            auto eta=now+seconds(int(round(restT)));//
             std::time_t tt=system_clock::to_time_t(eta);
             double process=counter/(double)GrayscaleMasks.size()*100;
             cout<<"[COCO] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
         counter++;
-    }    
+    }
 }
 
 void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
@@ -810,13 +812,15 @@ void adeimg2contrastive(vector<fs::path> RawImages, fs::path ade_root, fs::path 
         }
 
         if(print_process && i%100==0 && i>0) {//
-            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
-            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            std::chrono::duration<double> dur=high_resolution_clock::now()-start;// in seconds
+            auto now=system_clock::now();
+            auto restT=dur.count()/i*(RawImages.size()-i);
+            auto eta=now+seconds(int(round(restT)));//
             std::time_t tt=system_clock::to_time_t(eta);
             double process=i/(double)RawImages.size()*100;
             cout<<"[ADE20k] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
-    }    
+    }
 }
 
 void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::path binmask_output_dir, bool print_process){
@@ -911,11 +915,13 @@ void cityimg2contrastive(vector<fs::path> RawImages, fs::path output_dir, fs::pa
         }
 
         if(print_process && i%20==0 && i>0) {//
-            auto dur=duration_cast<seconds>(high_resolution_clock::now()-start).count();// in seconds
-            auto eta=system_clock::now()+seconds(dur/i*(RawImages.size()-i));//
+            std::chrono::duration<double> dur=high_resolution_clock::now()-start;// in seconds
+            auto now=system_clock::now();
+            auto restT=dur.count()/i*(RawImages.size()-i);
+            auto eta=now+seconds(int(round(restT)));//
             std::time_t tt=system_clock::to_time_t(eta);
             double process=i/(double)RawImages.size()*100;
             cout<<"[Cityscapes] "<<process<<"%\tETA: "<<std::put_time(std::localtime(&tt), "%Y-%m-%d %X")<<endl;
         }
-    }    
+    }
 }
