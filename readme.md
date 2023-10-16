@@ -125,3 +125,16 @@ $ tree /path/to/ContrastivePairs -L 1
 ```
 
 Those `*_ImgList.txt` files will be read by `dataloader` in training program.
+
+## Citation
+
+```bibtex
+@InProceedings{quan2023semantic,
+    author    = {Quan, Shengjiang and Hirano, Masahiro and Yamakawa, Yuji},
+    title     = {Semantic Information in Contrastive Learning},
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+    month     = {October},
+    year      = {2023},
+    pages     = {5686-5696}
+}
+```
