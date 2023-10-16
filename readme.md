@@ -1,6 +1,6 @@
 # SemCLDataset
 
-This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` datasets into anchor & non-anchor pairs for contrastive learning.
+This program is designed to convert `VOC2012`, `Cityscapes`, `ADE20K` or `COCO` datasets into anchor & non-anchor pairs for [SemCL](https://github.com/sjiang95/semcl) pretraining.
 
 |anchor|non-anchor|
 |:-:|:-:|
